@@ -1,0 +1,14 @@
+Package: rSpilhaus
+Type: Package
+Title: The Spilhaus Projection in R
+Version: 0.1.0
+Author: c(person("Bruce", "Martin", role=c("aut", "cre"),
+                 email="bruce.stagg.martin@gmail.com"),
+          person("Ricardo", "Lemos", role=c("aut")),
+          person("Rachel", "Toczydlowski", role=c("aut")))
+Maintainer: Bruce Martin <bruce.stagg.martin@gmail.com>
+Description: To come!
+License: GPL-3  + file LICENSE
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.3.1

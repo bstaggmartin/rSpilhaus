@@ -1,12 +1,3 @@
-#2 key future improvements:
-# - use tiling info for more accurate border extrapolation
-#    - i.e., see what line SHOULD meet up with across border
-# - use angle wrt origin so coordinates are distributed more evenly in corners
-#adapting to prettified borders:
-# - need to account for many, many more lines...tricky but not impossible
-# - after thinking on it, probably best to use angle wrt origin to extrapolate
-#   borders...otherwise they'll probably self-intersect and make a mess
-
 .magic.corner.patcher<-function(x,
                                 top,
                                 left,
@@ -47,13 +38,26 @@
   rr.angs<-atan(rr.angs[,2]/rr.angs[,1])
 
   #correcting angles when endpts touch border...
-  #may have to play around with tolerances some more...
+  #I think this should work, but it unfortunately might depend on whether...
+  #...polygon is clockwise/counterclockwise rather than corner...
+  # hh.ang<-if(top) pi/2 else -pi/2
+  # vv.ang<-if(left) pi else 0
+
   ll.angs[abs(coords[ll,1])>(abs(vv)-100)]<-0
   rr.angs[abs(coords[rr,1])>(abs(vv)-100)]<-0
+  #probs best to keep everything pi/2 and figure out best traversal later...
   ll.angs[abs(coords[ll,2])>(abs(vv)-100)]<-pi/2
   rr.angs[abs(coords[rr,2])>(abs(vv)-100)]<-pi/2
+  # tmp.inds<-abs(coords[ll,2])>(abs(vv)-100)
+  # ll.angs[tmp.inds&rr.angs<0]<- -pi/2
+  # ll.angs[tmp.inds&rr.angs>0]<-pi/2
+  # tmp.inds<-abs(coords[rr,2])>(abs(vv)-100)
+  # rr.angs[tmp.inds&ll.angs<0]<- -pi/2
+  # rr.angs[tmp.inds&ll.angs>0]<-pi/2
 
-  #get indices between each endpt pair
+  #get angles for remaining points on focal line by interpolating between endpts
+  #following function breaks if ll and rr are the same index...
+  #probably don't want to do anything in that case? Will fix later
   foo<-function(from,to,n){
     if(from>to){
       to<-n+to
@@ -64,11 +68,21 @@
   mms<-lapply(tmp.seq,
               function(ii) foo(ll[ii],rr[ii],nn))
 
-  #after much experimentation, best approach seems to be projecting
-  #endpts to borders, then interpolating between them, then projecting
-  #interpolations to border
-  #otherwise there's too much ambiguity in whether slope angles should
-  #rotate clockwise or counterclockwise
+  #10/29: alright, the above is fine
+  #the problem is making sure you get the correct "angle gradient"
+  #note: there's an "identity issue" of sorts--you don't need the entire unit circle of angles, just it's right side...
+  #yeah, most appropriate to use atan rather than atan2 here...
+
+  #I THINK weighted averages might be fine now???
+  #Not quite...but I think you're getting close
+  #Still have some cases where it seems like the angles shouldn't be going in the directions they are
+  #Yeah, "minimum intervening angle" idea doesn't always work unfortunately
+  #Having trouble finding systematic way to figure out "polarity" of angle traversal...
+  #Can't tell if I'm just not finding the right criteria or if this is impossible to do simply...
+  #alternate idea: project the corners (ll and rr)
+  #then see if you can interpolate between, rounding to nearest edge...
+  #probably the best way to do it...
+
   ll.prj<-cbind(vv,
                 tan(ll.angs)*(vv-coords[ll,1])+coords[ll,2])
   ll.prj.hh<-cbind((hh-coords[ll,2])/tan(ll.angs)+coords[ll,1],
@@ -87,7 +101,7 @@
   tmp.inds<-hh.dists<vv.dists
   rr.prj[tmp.inds,]<-rr.prj.hh[tmp.inds,]
 
-  #interpolation weights...
+
   ll.wgts<-lapply(tmp.seq,
                   function(ii)
                     sqrt(colSums((t(coords[mms[[ii]],,drop=FALSE])-coords[rr[ii],])^2)))
@@ -98,6 +112,8 @@
   #now need 3 cases
   #if ll and rr lie on hh, round to hh
   #if rr and ll lie on vv, round to vv
+  #otherwise, used edge proximity
+  #could combine with earlier foo to get mm in the first place using this approach...
   foo<-function(ii){
     tmp.prj<-(outer(ll.wgts[[ii]],ll.prj[ii,])+
                 outer(rr.wgts[[ii]],rr.prj[ii,]))/
@@ -118,13 +134,76 @@
   }
   mm.prj<-lapply(tmp.seq,foo)
 
-  #insert new coords back in
+  # all.inds<-c(ll,unlist(mms,use.names=FALSE),rr)
+  # all.pts<-coords[all.inds,,drop=FALSE]
+  # all.angs<-tan(c(ll.angs,unlist(mm.angs,use.names=FALSE),rr.angs))
   coords[c(ll,unlist(mms,use.names=FALSE),rr),]<-rbind(ll.prj,
                                                        do.call(rbind,mm.prj),
                                                        rr.prj)
-  x[,c("x","y")]<-coords
 
-  #add in corner coordinate if it doesn't exist
+
+  #almost there! the last thing you need to do is somehow make it so that this always comes up with reasonable interpolation
+  #depends on corner and orientation of ll vs rr...
+  #idea: use angle with respect to origin???
+  # foo<-function(ii){
+  #   tmp.angs<-atan(coords[mms[[ii]],2]/coords[mms[[ii]],1])
+  #   tmp.n<-length(tmp.angs)
+  #
+  #   (tmp.angs-min(tmp.angs[c(1,tmp.n)]))/diff(range(tmp.angs[c(1,tmp.n)]))*diff(range(ll.angs[ii],rr.angs[ii]))+min(ll.angs[ii],rr.angs[ii])
+  #
+  #
+  #
+  #
+  #
+  #
+  #   #scale and shift to fit with actual ll and rr angs...
+  #   #should be more robust
+  #   #almost there, but need to get "flipping" baked in
+  #
+  #   # if(tmp.angs[tmp.n]>tmp.angs[1]&rr.angs[ii]<ll.angs[ii]){
+  #   #   #things should go clockwise from ll to rr but are going counterclockwise
+  #   #   rr.angs[ii]<-rr.angs[ii]+pi
+  #   # }else  if(ll.angs[ii]<rr.angs[ii]){
+  #   #   #things should go counter-clockwise from ll to rr but are going clockwise
+  #   #   ll.angs[ii]<-ll.angs[ii]+pi
+  #   # }
+  #   #
+  #   # (tmp.angs-ll.o.angs[ii])/
+  #   #   (rr.o.angs[ii]-ll.o.angs[ii])*
+  #   #   (rr.angs[ii]-ll.angs[ii])+
+  #   #   ll.angs[ii]
+  #   #
+  #   # tan((tmp.angs-ll.o.angs[ii])/
+  #   #   (rr.o.angs[ii]-ll.o.angs[ii])*
+  #   #   (rr.angs[ii]-ll.angs[ii])+
+  #   #   ll.angs[ii])
+  # }
+  # mm.angs<-lapply(tmp.seq,foo)
+  # #put it all together...
+  # all.inds<-unlist(mms,use.names=FALSE)
+  # all.pts<-coords[all.inds,,drop=FALSE]
+  # all.angs<-tan(unlist(mm.angs,use.names=FALSE))
+
+  #not sure how well this will work...
+  # tmp.prj<-cbind(vv,
+  #                all.angs*(vv-all.pts[,1])+all.pts[,2])
+  # tmp.prj.hh<-cbind((hh-all.pts[,2])/all.angs+all.pts[,1],
+  #                   hh)
+  # tmp.inds<-abs(tmp.prj[,2])>abs(hh)
+  # tmp.prj[tmp.inds,]<-cbind((hh-all.pts[tmp.inds,2])/all.angs[tmp.inds]+all.pts[tmp.inds,1],
+  #                           hh)
+
+  # vv.dists<-sqrt(rowSums((tmp.prj-all.pts)^2))
+  # hh.dists<-sqrt(rowSums((tmp.prj.hh-all.pts)^2))
+  # tmp.inds<-hh.dists<vv.dists
+  # tmp.prj[tmp.inds,]<-tmp.prj.hh[tmp.inds,]
+
+  # coords[c(ll,unlist(mms,use.names=FALSE),rr),]<-rbind(ll.prj,
+  #                                                      do.call(rbind,mm.prj),
+  #                                                      rr.prj)
+  #potential issue--whether point is directly projected precisely into corner depends on resolution
+  #here's a potential fix?
+  x[,c("x","y")]<-coords
   on.hh<-x[,"y"]==hh
   on.vv<-x[,"x"]==vv
   if(!any(on.hh&on.vv)){
@@ -173,9 +252,9 @@ patch_corners<-function(x,
               .magic.corner.patcher(
                 terra::geom(terra::union(x[i],NA.patch1)[3]),
                 top=TRUE,left=TRUE,tol=NA_tol),"polygons"
+              )
             )
           )
-        )
         terra::values(tmp)<-terra::values(x)[i,,drop=FALSE]
         x<-rbind(x,tmp)
       }

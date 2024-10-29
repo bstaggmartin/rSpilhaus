@@ -1,7 +1,7 @@
 #' @export
 expand_borders<-function(x,
                          amount=0.06,
-                         buffer_tol=15,
+                         buffer_tol=30,
                          prettify=FALSE,
                          frame=FALSE,
                          frame_tol=5,

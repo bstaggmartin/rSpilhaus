@@ -5,9 +5,11 @@ og<-terra::vect(rnaturalearth::ne_download(scale=110,
                                            type="land",
                                            category="physical"))
 og<-terra::aggregate(og)
+og<-terra::vect(rnaturalearth::countries110)
 terra::plot(og)
 
 #convert to spilhaus projection
+debug(patch_corners)
 og2spil<-lonlat2spilhaus(og)
 terra::plot(og2spil)
 

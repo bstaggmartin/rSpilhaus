@@ -1,7 +1,13 @@
+#TODO:
+# - use new crack repair technique with convex hulls so buffering is no longer necessary
+# - adjust prettify border to work with 50 m res land from rnaturalearth (probs a good default)
+# - adapt corner patching technique to extend diff pieces of geometry along border
+#    - use angle wrt to origin to avoid self-intersection
+
 #' @export
 expand_borders<-function(x,
                          amount=0.06,
-                         buffer_tol=30,
+                         buffer_tol=35,
                          prettify=FALSE,
                          frame=FALSE,
                          frame_tol=5,
@@ -70,9 +76,9 @@ expand_borders<-function(x,
 
   #get cropping polygons...
   if(prettify){
-    #constraints lifted from ricardo's code...
+    # #constraints lifted from ricardo's code...
     # cols<-rainbow(6)
-    # terra::plot(out)
+    # terra::plot(out.prj)
     # #lines
     # abline(1.089e7,-0.176,col=cols[1])
     # abline(-0.984e7/0.565,-1/0.565,col=cols[2])
@@ -88,6 +94,26 @@ expand_borders<-function(x,
     # abline(v=0.4e7,h=-1.16e7,col=cols[5]) #intersects with line 3
     # abline(v=0.45e7,-1.11e7,col=cols[6]) #intersects with line 3
 
+    # #these should take care of any Alaskan weirdness...
+    # #intersect with line 1...
+    # abline(v=-7.6e6)
+    # abline(h=12e6)
+    # #horiztonal intersects with line 3, vertical with line 4
+    # abline(h=-9.5e6)
+    # abline(v=11.75e6)
+    # #for central America...just modify line positioning a bit
+    # # abline(v=0.295e7,h=-1.21e7,col=cols[3]) #intersect with line 3 --> change v to 0.293
+    # abline(v=0.293e7)
+    # # abline(v=0.312e7,h=-1.2e7,col=cols[4]) #intersect with line 3 --> change v to 0.3005, h to -1.1995
+    # abline(v=0.3005e7)
+    # # abline(v=0.4e7,h=-1.16e7,col=cols[5]) #intersects with line 3 --> change v to 0.39
+    # abline(v=0.39e7)
+    # # abline(v=0.45e7,-1.11e7,col=cols[6]) #intersects with line 3
+    # terra::plot(out.prj,
+    #             xlim=c(-1.5e7,1.5e7),ylim=c(-1.5e7,1.5e7))
+    # # xlim=c(1e6,6e6),ylim=c(-1.3e7,-1e7),asp=NA)
+    # lines(cropper)
+
     #converting the above to a polygon...
     lim2<-1.1*lim
     cropper<-
@@ -96,14 +122,26 @@ expand_borders<-function(x,
         c(-lim2,2.3e7-lim2),
         #line 6 and line 1
         c((2.3e7-1.089e7)/(-0.176-1),1.089e7-0.176*(2.3e7-1.089e7)/(-0.176-1)),
+        #line 1 and NEW vertical line 1
+        c(-7.6e6,1.089e7-0.176*-7.6e6),
+        #NEW vertical and horizontal line 1
+        c(-7.6e6,12e6),
+        #NEW horizontal line 1 and line 1
+        c((1.089e7-12e6)/0.176,12e6),
         #line 1 and line 5
         c((1e7-1.089e7)/(-0.176+0.5),1.089e7-0.176*(1e7-1.089e7)/(-0.176+0.5)),
         #line 5 and right lim
         c(lim2,1e7-0.5*lim2),
         #right lim and line 4
-        c(lim2,-1.274e7/0.172+1/0.172*lim2),
-        #line 4 and line 3
-        c((-1.274e7/0.172+1.378e7)/(0.46-1/0.172),-1.378e7+0.46*(-1.274e7/0.172+1.378e7)/(0.46-1/0.172)),
+        c(lim2,-1.274e7/0.172+lim2/0.172),
+        #line 4 and NEW vertical line 2
+        c(11.75e6,-1.274e7/0.172+11.75e6/0.172),
+        #NEW vertical and horizontal line 2
+        c(11.75e6,-9.5e6),
+        #NEW horizontal line 2 and line 3
+        c((1.274e7-9.5e6*0.172),-9.5e6),
+        # #line 4 and line 3
+        # c((-1.274e7/0.172+1.378e7)/(0.46-1/0.172),-1.378e7+0.46*(-1.274e7/0.172+1.378e7)/(0.46-1/0.172)),
         #line 3 and horizontal line 6
         c((-1.11e7+1.378e7)/0.46,-1.11e7),
         #horizontal and vertical line 6
@@ -115,23 +153,23 @@ expand_borders<-function(x,
         #vertical line 6 and horizontal line 5
         c(0.45e7,-1.16e7),
         #horizontal and vertical line 5
-        c(0.4e7,-1.16e7),
+        c(0.39e7,-1.16e7),
         #vertical line 5 and line 3
-        c(0.4e7,-1.378e7+0.46*0.4e7),
+        c(0.39e7,-1.378e7+0.46*0.39e7),
         #line 3 and horizontal line 4
-        c((-1.2e7+1.378e7)/0.46,-1.2e7),
+        c((-1.2e7+1.378e7)/0.46,-1.1995e7),
         #horizontal and vertical line 4
-        c(0.312e7,-1.2e7),
+        c(0.3005e7,-1.1995e7),
         # #vertical line 4 and line 3
         # c(0.312e7,-1.378e7+0.46*0.312e7),
         # #line 3 and horizontal line 3
         # c((-1.21e7+1.378e7)/0.46,-1.21e7),
         #vertical line 4 and horizontal line 3
-        c(0.312e7,-1.21e7),
+        c(0.3005e7,-1.21e7),
         #horizontal and vertical line 3
-        c(0.295e7,-1.21e7),
+        c(0.293e7,-1.21e7),
         #vertical line 3 and line 3
-        c(0.295e7,-1.378e7+0.46*0.295e7),
+        c(0.293e7,-1.378e7+0.46*0.295e7),
         #line 3 and bottom lim
         c((-lim2+1.378e7)/0.46,-lim2),
         #bottom lim and line 2

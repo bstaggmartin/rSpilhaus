@@ -1,7 +1,7 @@
 library(rSpilhaus)
 
 #download/aggregate land data
-og<-terra::vect(rnaturalearth::ne_download(scale=110,
+og<-terra::vect(rnaturalearth::ne_download(scale=50,
                                            type="land",
                                            category="physical"))
 og<-terra::aggregate(og)
@@ -9,7 +9,6 @@ og<-terra::vect(rnaturalearth::countries110)
 terra::plot(og)
 
 #convert to spilhaus projection
-debug(patch_corners)
 og2spil<-lonlat2spilhaus(og)
 terra::plot(og2spil)
 
@@ -22,6 +21,9 @@ terra::plot(tiled)
 # - minor artifacts around Alaska towards top left
 # - minor artifiacts in Central America towards bottom right
 #Will have to further refine cropping polygon in the future
+#10/30 update: working better now! Still get some tiny artifacts around...
+#...top Alaska and both Central Americas at higher resolutions
+#(probably just have to tweak existing coordinates a little bit)
 prettified<-expand_borders(og2spil,prettify=TRUE,frame=TRUE)
 terra::plot(prettified)
 
@@ -30,7 +32,7 @@ og2spil2og<-spilhaus2lonlat(og2spil)
 terra::plot(og2spil2og)
 
 #testing out the same with marine ecoregions
-ecor<-terra::vect("~/../Documents/spilhaus/Marine_Ecoregions_Of_the_World__MEOW_.shp")
+ecor<-terra::vect("C:/Users/bruce/Documents/spilhaus/Marine_Ecoregions_Of_the_World__MEOW_.shp")
 ecor<-terra::project(ecor,"+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
 terra::plot(ecor)
 

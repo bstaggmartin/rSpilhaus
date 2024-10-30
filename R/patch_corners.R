@@ -103,16 +103,28 @@
                 outer(rr.wgts[[ii]],rr.prj[ii,]))/
       rep(ll.wgts[[ii]]+rr.wgts[[ii]],2)
 
-    #I think a projection using the angle with the origin might be better, but this works for now
-    if(coords[ll[ii],2]==hh&coords[rr[ii],2]==hh){
-      tmp.prj[,2]<-hh
-    }else if(coords[ll[ii],1]==vv&coords[rr[ii],1]==vv){
-      tmp.prj[,1]<-vv
-    }else{
-      dist.hh<-abs(tmp.prj[,2]-hh)
-      dist.vv<-abs(tmp.prj[,1]-vv)
-      tmp.prj[dist.hh<dist.vv,2]<-hh
-      tmp.prj[dist.vv<dist.hh,1]<-vv
+    # #I think a projection using the angle with the origin might be better, but this works for now
+    # if(coords[ll[ii],2]==hh&coords[rr[ii],2]==hh){
+    #   tmp.prj[,2]<-hh
+    # }else if(coords[ll[ii],1]==vv&coords[rr[ii],1]==vv){
+    #   tmp.prj[,1]<-vv
+    # }else{
+    #   dist.hh<-abs(tmp.prj[,2]-hh)
+    #   dist.vv<-abs(tmp.prj[,1]-vv)
+    #   tmp.prj[dist.hh<dist.vv,2]<-hh
+    #   tmp.prj[dist.vv<dist.hh,1]<-vv
+    # }
+    #wait...tmp.prj will already be correct if both ll and rr lie on the same border
+    #so you ONLY need to deal with case that they don't!
+    #now using angle wrt origin for more even spacing of coords
+    if(!(coords[ll[ii],2]==hh&coords[rr[ii],2]==hh)&
+       !(coords[ll[ii],1]==vv&coords[rr[ii],1]==vv)){
+      tmp.slopes<-tmp.prj[,2]/tmp.prj[,1]
+      tmp.prj<-cbind(vv,
+                     tmp.slopes*vv)
+      tmp.inds<-abs(tmp.prj[,2])>abs(hh)
+      tmp.prj[tmp.inds,]<-cbind(hh/tmp.slopes[tmp.inds],
+                                hh)
     }
     tmp.prj
   }

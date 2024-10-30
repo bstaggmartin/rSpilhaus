@@ -41,13 +41,11 @@ spilhaus2lonlat.SpatVector<-function(dat,
                                      xlim=c(-11825474,11825474),
                                      ylim=xlim,
                                      rip=TRUE,
+                                     rip_seam_res=2000,
                                      rip_seam_width=0.005,
                                      dissolve=TRUE,
-                                     intersect_tol=0.01,
-                                     snap_tol=0.05,
-                                     buffer_tol=0.005,
-                                     rip_seam_res=2000,
                                      dissolve_seam_res=1000,
+                                     dissolve_seam_width=2*rip_seam_width,
                                      revalidate_geoms=TRUE){
   if(rip){
     dat<-rip_IDL_seam(dat,
@@ -66,9 +64,7 @@ spilhaus2lonlat.SpatVector<-function(dat,
   if(dissolve){
     dat<-dissolve_spilhaus_seam(dat,
                                 seam_res=dissolve_seam_res,
-                                intersect_tol=intersect_tol,
-                                snap_tol=snap_tol,
-                                buffer_tol=buffer_tol,
+                                seam_width=dissolve_seam_width,
                                 revalidate_geoms=revalidate_geoms)
   }
 
@@ -184,6 +180,7 @@ lonlat2spilhaus<-function(dat,...){
 #' @method lonlat2spilhaus SpatVector
 lonlat2spilhaus.SpatVector<-function(dat,
                                      rip=TRUE,
+                                     rip_seam_res=1000,
                                      NA_tol=1.1e6,
                                      SA_tol=1.1e6,
                                      Asia_tol=1.1e6,
@@ -192,11 +189,8 @@ lonlat2spilhaus.SpatVector<-function(dat,
                                      SA_patch_tol=SA_tol+15,
                                      Asia_patch_tol=Asia_tol+15,
                                      dissolve=TRUE,
-                                     intersect_tol=1000,
-                                     snap_tol=5000,
-                                     buffer_tol=500,
-                                     rip_seam_res=1000,
                                      dissolve_seam_res=1000,
+                                     dissolve_seam_width=1000,
                                      revalidate_geoms=TRUE){
   if(rip){
     dat<-rip_spilhaus_seam(x=dat,
@@ -227,9 +221,7 @@ lonlat2spilhaus.SpatVector<-function(dat,
   if(dissolve){
     dat<-dissolve_IDL_seam(dat,
                            seam_res=dissolve_seam_res,
-                           intersect_tol=intersect_tol,
-                           snap_tol=snap_tol,
-                           buffer_tol=buffer_tol,
+                           seam_width=dissolve_seam_width,
                            revalidate_geoms=revalidate_geoms[2])
   }
 

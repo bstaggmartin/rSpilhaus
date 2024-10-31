@@ -61,11 +61,18 @@ spilhaus2lonlat.SpatVector<-function(dat,
                    type=terra::geomtype(dat),
                    atts=terra::values(dat))
 
+  if(is.null(revalidate_geoms)) revalidate_geoms<-TRUE
+  revalidate_geoms[is.na(revalidate_geoms)]<-TRUE
+  revalidate_geoms<-rep(revalidate_geoms,length.out=2)
+  if(revalidate_geoms[1]){
+    dat<-terra::buffer(dat,0)
+  }
+
   if(dissolve){
     dat<-dissolve_spilhaus_seam(dat,
                                 seam_res=dissolve_seam_res,
                                 seam_width=dissolve_seam_width,
-                                revalidate_geoms=revalidate_geoms)
+                                revalidate_geoms=revalidate_geoms[2])
   }
 
   dat
@@ -209,20 +216,24 @@ lonlat2spilhaus.SpatVector<-function(dat,
 
   if(is.null(revalidate_geoms)) revalidate_geoms<-TRUE
   revalidate_geoms[is.na(revalidate_geoms)]<-TRUE
-  revalidate_geoms<-rep(revalidate_geoms,length.out=2)
+  revalidate_geoms<-rep(revalidate_geoms,length.out=3)
+  if(revalidate_geoms[1]){
+    dat<-terra::buffer(dat,0)
+  }
+
   if(patch){
     dat<-patch_corners(dat,
                        NA_tol=NA_patch_tol,
                        SA_tol=SA_patch_tol,
                        Asia_tol=Asia_patch_tol,
-                       revalidate_geoms=revalidate_geoms[1])
+                       revalidate_geoms=revalidate_geoms[2])
   }
 
   if(dissolve){
     dat<-dissolve_IDL_seam(dat,
                            seam_res=dissolve_seam_res,
                            seam_width=dissolve_seam_width,
-                           revalidate_geoms=revalidate_geoms[2])
+                           revalidate_geoms=revalidate_geoms[3])
   }
 
   dat

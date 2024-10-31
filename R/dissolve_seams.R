@@ -52,7 +52,9 @@ dissolve_spilhaus_seam<-function(x,
 
   #new approach with convex hulls --> should be much cleaner...
   for(i in inds){
-    tmp<-terra::disagg(terra::union(x[i],seam)[3])
+    uni<-terra::union(x[i],seam)
+    tmp<-terra::disagg(uni[3])
+    uni<-terra::aggregate(uni)
 
     # tmp.n<-rep(length(tmp),2)
     #need some step for remerging disaggregated bits by distance...
@@ -79,6 +81,19 @@ dissolve_spilhaus_seam<-function(x,
       terra::values(tmp)<-data.frame("TEMPORARY_GRP"=1)
     }
     tmp<-terra::aggregate(terra::convHull(tmp,by="TEMPORARY_GRP"))
+
+    #alpha hulls seem finicky...
+    # tmp<-terra::aggregate(tmp,by="TEMPORARY_GRP")
+    # terra::plot(terra::convHull(tmp[18]))
+    # tmpy<-terra::geom(tmp[18])[,c("x","y")]
+    # tmpy<-tmpy[!duplicated(tmpy),]
+    # debug(alphahull::ashape)
+    # alphahull::ashape(tmpy[,1],tmpy[,2],0.1)
+
+    #I think if I take the difference between the hulls and the union of x and the seams...
+    #in other words, just crop convex hulls with entire union of geom and seams!
+    tmp<-terra::crop(tmp,uni)
+
     tmp<-terra::aggregate(terra::union(x[i],tmp))
     terra::values(tmp)<-terra::values(x)[i,,drop=FALSE]
     x<-rbind(x,tmp)
@@ -194,7 +209,9 @@ dissolve_IDL_seam<-function(x,
 
   #new approach with convex hulls --> should be much cleaner...
   for(i in inds){
-    tmp<-terra::disagg(terra::union(x[i],seam)[3])
+    uni<-terra::union(x[i],seam)
+    tmp<-terra::disagg(uni[3])
+    uni<-terra::aggregate(uni)
 
     # tmp.n<-rep(length(tmp),2)
     #need some step for remerging disaggregated bits by distance...
@@ -221,6 +238,11 @@ dissolve_IDL_seam<-function(x,
       terra::values(tmp)<-data.frame("TEMPORARY_GRP"=1)
     }
     tmp<-terra::aggregate(terra::convHull(tmp,by="TEMPORARY_GRP"))
+
+    #I think if I take the difference between the hulls and the union of x and the seams...
+    #in other words, just crop convex hulls with entire union of geom and seams!
+    tmp<-terra::crop(tmp,uni)
+
     tmp<-terra::aggregate(terra::union(x[i],tmp))
     terra::values(tmp)<-terra::values(x)[i,,drop=FALSE]
     x<-rbind(x,tmp)

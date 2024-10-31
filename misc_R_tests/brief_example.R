@@ -1,11 +1,12 @@
 library(rSpilhaus)
 
-#download/aggregate land data
+#download/aggregate land data (helpful for testing few large geoms)
 og<-terra::vect(rnaturalearth::ne_download(scale=50,
                                            type="land",
                                            category="physical"))
 og<-terra::aggregate(og)
-og<-terra::vect(rnaturalearth::countries110)
+#OR get country map (helpful for testing many small geoms)
+# og<-terra::vect(rnaturalearth::countries110)
 terra::plot(og)
 
 #convert to spilhaus projection

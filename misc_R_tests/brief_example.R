@@ -10,15 +10,15 @@ og<-terra::aggregate(og)
 terra::plot(og)
 
 #convert to spilhaus projection
-og2spil<-lonlat2spilhaus(og,NA_tol=5e5)
+og2spil<-lonlat2spilhaus(og)
 terra::plot(og2spil)
 
-lakes<-terra::vect(rnaturalearth::ne_download(scale=50,
-                                              type="lakes",
-                                              category="physical"))
-lakes2spil<-lonlat2spilhaus(lakes)
-og2spil<-terra::erase(og2spil,lakes2spil)
-terra::plot(og2spil)
+# lakes<-terra::vect(rnaturalearth::ne_download(scale=50,
+#                                               type="lakes",
+#                                               category="physical"))
+# lakes2spil<-lonlat2spilhaus(lakes)
+# og2spil<-terra::erase(og2spil,lakes2spil)
+# terra::plot(og2spil)
 
 #expand borders via tiling
 tiled<-expand_borders(og2spil)
@@ -34,6 +34,7 @@ terra::plot(tiled,
 #10/30 update: working better now! Still get some tiny artifacts around...
 #...top Alaska and both Central Americas at higher resolutions
 #(probably just have to tweak existing coordinates a little bit)
+debug(expand_borders)
 prettified<-expand_borders(og2spil,prettify=TRUE,frame=TRUE)
 terra::plot(prettified)
 

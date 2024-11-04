@@ -143,10 +143,10 @@ expand_borders<-function(x,
 
     #need to alter first vertical line intersecting with line 3
     #need to add corner around south central america for extra safety
-    terra::plot(out.prj,
-                # xlim=c(-1.5e7,1.5e7),ylim=c(-1.5e7,1.5e7))
-    xlim=c(1e6,6e6),ylim=c(-1.3e7,-1e7),asp=NA)
-    lines(cropper)
+    # terra::plot(out.prj,
+    #             # xlim=c(-1.5e7,1.5e7),ylim=c(-1.5e7,1.5e7))
+    # xlim=c(1e6,6e6),ylim=c(-1.3e7,-1e7),asp=NA)
+    # lines(cropper)
 
     #converting the above to a polygon...
     lim2<-1.1*lim

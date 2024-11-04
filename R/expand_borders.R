@@ -123,7 +123,7 @@ expand_borders<-function(x,
     # abline(v=0.295e7,h=-1.21e7,col=cols[3]) #intersect with line 3
     # abline(v=0.312e7,h=-1.2e7,col=cols[4]) #intersect with line 3
     # abline(v=0.4e7,h=-1.16e7,col=cols[5]) #intersects with line 3
-    # abline(v=0.45e7,-1.11e7,col=cols[6]) #intersects with line 3
+    # abline(v=0.447e7,h=-1.11e7,col=cols[6]) #intersects with line 3
 
     # #these should take care of any Alaskan weirdness...
     # #intersect with line 1...
@@ -142,7 +142,9 @@ expand_borders<-function(x,
     # # abline(v=0.45e7,-1.11e7,col=cols[6]) #intersects with line 3
 
     #need to alter first vertical line intersecting with line 3
+    #0.45 --> 0.447
     #need to add corner around south central america for extra safety
+    # abline(h=-12.53e6,v=2.825e6)
     # terra::plot(out.prj,
     #             # xlim=c(-1.5e7,1.5e7),ylim=c(-1.5e7,1.5e7))
     # xlim=c(1e6,6e6),ylim=c(-1.3e7,-1e7),asp=NA)
@@ -179,13 +181,13 @@ expand_borders<-function(x,
         #line 3 and horizontal line 6
         c((-1.11e7+1.378e7)/0.46,-1.11e7),
         #horizontal and vertical line 6
-        c(0.45e7,-1.11e7),
+        c(0.447e7,-1.11e7),
         # #vertical line 6 and line 3
-        # c(0.45e7,-1.378e7+0.46*0.45e7),
+        # c(0.447e7,-1.378e7+0.46*0.447e7),
         # #line 3 and horizontal line 5
         # c((-1.16e7+1.378e7)/0.46,-1.16e7),
         #vertical line 6 and horizontal line 5
-        c(0.45e7,-1.16e7),
+        c(0.447e7,-1.16e7),
         #horizontal and vertical line 5
         c(0.39e7,-1.16e7),
         #vertical line 5 and line 3
@@ -204,6 +206,12 @@ expand_borders<-function(x,
         c(0.293e7,-1.21e7),
         #vertical line 3 and line 3
         c(0.293e7,-1.378e7+0.46*0.295e7),
+        #line 3 and NEW vertical line 3
+        c(2.825e6,-1.378e7+0.46*2.825e6),
+        #NEW vertical and horizontal line 3
+        c(2.825e6,-12.53e6),
+        #NEW horizontal line 3 and line3
+        c((-12.53e6+1.378e7)/0.46,-12.53e6),
         #line 3 and bottom lim
         c((-lim2+1.378e7)/0.46,-lim2),
         #bottom lim and line 2

@@ -1,7 +1,7 @@
 library(rSpilhaus)
 
 #download/aggregate land data (helpful for testing few large geoms)
-og<-terra::vect(rnaturalearth::ne_download(scale=50,
+og<-terra::vect(rnaturalearth::ne_download(scale=10,
                                            type="land",
                                            category="physical"))
 og<-terra::aggregate(og)
@@ -34,7 +34,6 @@ terra::plot(tiled,
 #10/30 update: working better now! Still get some tiny artifacts around...
 #...top Alaska and both Central Americas at higher resolutions
 #(probably just have to tweak existing coordinates a little bit)
-debug(expand_borders)
 prettified<-expand_borders(og2spil,prettify=TRUE,frame=TRUE)
 terra::plot(prettified)
 

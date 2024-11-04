@@ -10,12 +10,21 @@ og<-terra::aggregate(og)
 terra::plot(og)
 
 #convert to spilhaus projection
-og2spil<-lonlat2spilhaus(og)
+og2spil<-lonlat2spilhaus(og,NA_tol=5e5)
+terra::plot(og2spil)
+
+lakes<-terra::vect(rnaturalearth::ne_download(scale=50,
+                                              type="lakes",
+                                              category="physical"))
+lakes2spil<-lonlat2spilhaus(lakes)
+og2spil<-terra::erase(og2spil,lakes2spil)
 terra::plot(og2spil)
 
 #expand borders via tiling
 tiled<-expand_borders(og2spil)
-terra::plot(tiled)
+terra::plot(tiled,
+            xlim=c(-1.2e7,1.2e7),ylim=c(-1.2e7,1.2e7),
+            background="steelblue4",col="chartreuse3",border=NA)
 
 #expand borders via "prettifying"
 #I lifted the prettification border directly from Ricardo's code, but:

@@ -1,5 +1,6 @@
 #TODO:
 # - use new crack repair technique with convex hulls so buffering is no longer necessary
+#    - 10/31 (oooh spooky) --> check!
 # - adjust prettify border to work with 50 m res land from rnaturalearth (probs a good default)
 # - adapt corner patching technique to extend diff pieces of geometry along border
 #    - use angle wrt to origin to avoid self-intersection
@@ -7,7 +8,7 @@
 #' @export
 expand_borders<-function(x,
                          amount=0.06,
-                         buffer_tol=35,
+                         seam_width=1000,
                          prettify=FALSE,
                          frame=FALSE,
                          frame_tol=5,
@@ -52,14 +53,44 @@ expand_borders<-function(x,
                                           rotate(tmp,pi/2,c(lim,lim)),
                                           rotate(tmp,pi,c(lim,-lim)))),
                        geom.type)
+  seams<-c(-3*lim,3*lim)
+  seams<-terra::vect(list(cbind(seams,-lim),
+                          cbind(seams,lim),
+                          cbind(-lim,seams),
+                          cbind(lim,seams)),
+                     "lines")
+  seams<-terra::buffer(terra::aggregate(seams),
+                       seam_width,
+                       capstyle="square")
 
   nn<-length(x)
   out.prj<-NULL
   for(i in 1:nn){
-    if(geom.type=="polygons"){
-      tmp<-terra::aggregate(terra::buffer(tmp.prj[(0:8)*nn+i],width=buffer_tol))
-    }else{
-      tmp<-terra::aggregate(tmp.prj[(0:8)*nn+i])
+    tmp<-tmp1<-terra::aggregate(tmp.prj[(0:8)*nn+i])
+    if(geom.type=="polygons"&terra::is.related(tmp1,seams,"intersects")){
+      uni<-terra::union(tmp1,seams)
+      tmp<-terra::disagg(uni[3])
+      uni<-terra::aggregate(uni)
+      #better approach --> centroids of bounding boxes...
+      if(length(tmp)>1){
+        tmpy<-terra::geom(tmp)
+        cents<-cbind((tapply(tmpy[,"x"],tmpy[,"geom"],min)+
+                        tapply(tmpy[,"x"],tmpy[,"geom"],max))/2,
+                     (tapply(tmpy[,"y"],tmpy[,"geom"],min)+
+                        tapply(tmpy[,"y"],tmpy[,"geom"],max))/2)
+
+        terra::values(tmp)<-
+          data.frame(
+            "TEMPORARY_GRP"=cutree(hclust(dist(cents)),h=2*seam_width)
+          )
+      }else{
+        terra::values(tmp)<-data.frame("TEMPORARY_GRP"=1)
+      }
+      tmp<-terra::aggregate(terra::convHull(tmp,by="TEMPORARY_GRP"))
+      #I think if I take the difference between the hulls and the union of x and the seams...
+      #in other words, just crop convex hulls with entire union of geom and seams!
+      tmp<-terra::crop(tmp,uni)
+      tmp<-terra::aggregate(terra::union(tmp1,tmp))
     }
     terra::values(tmp)<-terra::values(x)[i,,drop=FALSE]
     if(is.null(out.prj)){
@@ -96,8 +127,8 @@ expand_borders<-function(x,
 
     # #these should take care of any Alaskan weirdness...
     # #intersect with line 1...
-    # abline(v=-7.6e6)
-    # abline(h=12e6)
+    # abline(v=-8e6)
+    # abline(h=11.9e6)
     # #horiztonal intersects with line 3, vertical with line 4
     # abline(h=-9.5e6)
     # abline(v=11.75e6)
@@ -109,10 +140,13 @@ expand_borders<-function(x,
     # # abline(v=0.4e7,h=-1.16e7,col=cols[5]) #intersects with line 3 --> change v to 0.39
     # abline(v=0.39e7)
     # # abline(v=0.45e7,-1.11e7,col=cols[6]) #intersects with line 3
-    # terra::plot(out.prj,
-    #             xlim=c(-1.5e7,1.5e7),ylim=c(-1.5e7,1.5e7))
-    # # xlim=c(1e6,6e6),ylim=c(-1.3e7,-1e7),asp=NA)
-    # lines(cropper)
+
+    #need to alter first vertical line intersecting with line 3
+    #need to add corner around south central america for extra safety
+    terra::plot(out.prj,
+                # xlim=c(-1.5e7,1.5e7),ylim=c(-1.5e7,1.5e7))
+    xlim=c(1e6,6e6),ylim=c(-1.3e7,-1e7),asp=NA)
+    lines(cropper)
 
     #converting the above to a polygon...
     lim2<-1.1*lim
@@ -123,11 +157,11 @@ expand_borders<-function(x,
         #line 6 and line 1
         c((2.3e7-1.089e7)/(-0.176-1),1.089e7-0.176*(2.3e7-1.089e7)/(-0.176-1)),
         #line 1 and NEW vertical line 1
-        c(-7.6e6,1.089e7-0.176*-7.6e6),
+        c(-8e6,1.089e7-0.176*-8e6),
         #NEW vertical and horizontal line 1
-        c(-7.6e6,12e6),
+        c(-8e6,11.9e6),
         #NEW horizontal line 1 and line 1
-        c((1.089e7-12e6)/0.176,12e6),
+        c((1.089e7-11.9e6)/0.176,11.9e6),
         #line 1 and line 5
         c((1e7-1.089e7)/(-0.176+0.5),1.089e7-0.176*(1e7-1.089e7)/(-0.176+0.5)),
         #line 5 and right lim

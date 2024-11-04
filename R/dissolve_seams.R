@@ -99,7 +99,9 @@ dissolve_spilhaus_seam<-function(x,
     x<-rbind(x,tmp)
   }
   #eliminate the old geometry elements (R didn't seem to like directly replacing the indices for whatever reason)
-  x<-x[-inds]
+  if(length(inds)){
+    x<-x[-inds]
+  }
 
   x<-terra::sort(x,v="TEMPORARY_ORDER")
   vals<-terra::values(x)
@@ -248,7 +250,9 @@ dissolve_IDL_seam<-function(x,
     x<-rbind(x,tmp)
   }
   #eliminate the old geometry elements (R didn't seem to like directly replacing the indices for whatever reason)
-  x<-x[-inds]
+  if(length(inds)){
+    x<-x[-inds]
+  }
 
   x<-terra::sort(x,v="TEMPORARY_ORDER")
   vals<-terra::values(x)

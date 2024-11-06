@@ -1,7 +1,7 @@
 library(rSpilhaus)
 
 #download/aggregate land data (helpful for testing few large geoms)
-og<-terra::vect(rnaturalearth::ne_download(scale=10,
+og<-terra::vect(rnaturalearth::ne_download(scale=50,
                                            type="land",
                                            category="physical"))
 og<-terra::aggregate(og)
@@ -9,22 +9,21 @@ og<-terra::aggregate(og)
 # og<-terra::vect(rnaturalearth::countries110)
 terra::plot(og)
 
-#convert to spilhaus projection
-og2spil<-lonlat2spilhaus(og)
-terra::plot(og2spil)
-
-# lakes<-terra::vect(rnaturalearth::ne_download(scale=50,
+# lakes<-terra::vect(rnaturalearth::ne_download(scale=110,
 #                                               type="lakes",
 #                                               category="physical"))
+# og<-terra::erase(og,lakes)
 # lakes2spil<-lonlat2spilhaus(lakes)
 # og2spil<-terra::erase(og2spil,lakes2spil)
 # terra::plot(og2spil)
 
+#convert to spilhaus projection
+og2spil<-lonlat2spilhaus(og)
+terra::plot(og2spil)
+
 #expand borders via tiling
-tiled<-expand_borders(og2spil)
-terra::plot(tiled,
-            xlim=c(-1.2e7,1.2e7),ylim=c(-1.2e7,1.2e7),
-            background="steelblue4",col="chartreuse3",border=NA)
+# tiled<-expand_borders(og2spil)
+# terra::plot(tiled)http://127.0.0.1:14161/graphics/plot_zoom_png?width=1522&height=854
 
 #expand borders via "prettifying"
 #I lifted the prettification border directly from Ricardo's code, but:
@@ -34,7 +33,10 @@ terra::plot(tiled,
 #10/30 update: working better now! Still get some tiny artifacts around...
 #...top Alaska and both Central Americas at higher resolutions
 #(probably just have to tweak existing coordinates a little bit)
+# terra::plot(expand_borders(og2spil,prettify=TRUE,frame=TRUE,cent=c(-3e6,3e6)))
+# debug(expand_borders)
 prettified<-expand_borders(og2spil,prettify=TRUE,frame=TRUE)
+#still getting minor artifact with land res of 50...
 terra::plot(prettified)
 
 #can now convert back to lonlat coordinates quite easily

@@ -4,6 +4,9 @@
 # - adjust prettify border to work with 50 m res land from rnaturalearth (probs a good default)
 # - adapt corner patching technique to extend diff pieces of geometry along border
 #    - use angle wrt to origin to avoid self-intersection
+#maybe use angle wrt to...
+# abline(v=-3.75e6,h=2e6)
+#ended up making it an argument "center"
 
 #' @export
 expand_borders<-function(x,
@@ -11,7 +14,11 @@ expand_borders<-function(x,
                          seam_width=1000,
                          prettify=FALSE,
                          frame=FALSE,
-                         frame_tol=5,
+                         frame_tol=15,
+                         pt_tol=0.1,
+                         cent=c(-3e6,3e6),
+                         merge_neg_space=TRUE,
+                         neg_space_tol=5,
                          revalidate_geoms=TRUE){
 
   if(amount>1|amount<0){
@@ -145,10 +152,38 @@ expand_borders<-function(x,
     #0.45 --> 0.447
     #need to add corner around south central america for extra safety
     # abline(h=-12.53e6,v=2.825e6)
-    # terra::plot(out.prj,
-    #             # xlim=c(-1.5e7,1.5e7),ylim=c(-1.5e7,1.5e7))
-    # xlim=c(1e6,6e6),ylim=c(-1.3e7,-1e7),asp=NA)
+
+    #okay, last round I think...
+    #there were some sneaky artifacts hiding about...
+    # tmp.map<-terra::crop(out.prj,
+    #                      terra::vect(cbind(c(-1.5e7,-1.5e7,1.5e7,1.5e7),
+    #                                        c(-1.5e7,1.5e7,1.5e7,-1.5e7)),
+    #                                  "polygons"))
+    # terra::plot(tmp.map,
+    # xlim=c(-1.5e7,1.5e7),ylim=c(-1.5e7,1.5e7)) #overall
+    # xlim=c(1e6,6e6),ylim=c(-1.3e7,-1e7),asp=NA) #bottom central america
+    # xlim=c(2.5e6,3.5e6),ylim=c(-1.26e7,-1.15e7),asp=NA) #bottom central america--zoomed
+    # xlim=c(-5.1e6,-4.5e6),ylim=c(1.15e7,1.21e7),asp=NA) #top bering
+    # xlim=c(1.15e7,1.21e7),ylim=c(-5.1e6,-4.5e6),asp=NA) #bottom bering
+    # xlim=c(-1.2e7,-1.1e7),ylim=c(2.5e6,3.5e6),asp=NA) #top central america
+
     # lines(cropper)
+
+    #fix top bering strait artifact--intersect with line 1
+    # abline(h=1.176e7,v=-4.909e6)
+    # abline(h=1.1725e7,v=-4.55e6)
+    #lines to make bottom bering strait safe--intersect with line 4
+    # abline(h=-4.55e6,v=1.1935e7)
+    #fixing top central america is gonna be a bit rough...
+    #2 new hor/ver lines to intersect with line 2 hor/ver line 1 and hor/ver line 2
+    # abline(v=-1.159e7,h=3.01e6)
+    # abline(h=2.93e6,v=-1.121e7)
+    #and modify hor/ver line 1; this directly intersects with prev. hor/ver line
+    # abline(h=2.88e6,v=-1.113e7)
+
+
+
+
 
     #converting the above to a polygon...
     lim2<-1.1*lim
@@ -164,12 +199,30 @@ expand_borders<-function(x,
         c(-8e6,11.9e6),
         #NEW horizontal line 1 and line 1
         c((1.089e7-11.9e6)/0.176,11.9e6),
+        #line 1 and NEW horizontal line 4
+        c((1.089e7-1.176e7)/0.176,1.176e7),
+        #NEW horizontal and vertical line 4
+        c(-4.909e6,1.176e7),
+        #NEW vertical line 4 and line 1
+        c(-4.909e6,1.089e7-0.176*-4.909e6),
+        #line 1 and NEW horizontal line 5
+        c((1.089e7-1.1725e7)/0.176,1.1725e7),
+        #NEW horizontal and vertical line 5
+        c(-4.55e6,1.1725e7),
+        #NEW vertical line 5 and line 1
+        c(-4.55e6,1.089e7-0.176*-4.55e6),
         #line 1 and line 5
         c((1e7-1.089e7)/(-0.176+0.5),1.089e7-0.176*(1e7-1.089e7)/(-0.176+0.5)),
         #line 5 and right lim
         c(lim2,1e7-0.5*lim2),
         #right lim and line 4
         c(lim2,-1.274e7/0.172+lim2/0.172),
+        #line 4 and NEW horizontal line 6
+        c(-4.55e6*0.172+1.274e7,-4.55e6),
+        #NEW horizontal and vertical line 6
+        c(1.1935e7,-4.55e6),
+        #NEW vertical line 6 and line 4
+        c(1.1935e7,-1.274e7/0.172+1.1935e7/0.172),
         #line 4 and NEW vertical line 2
         c(11.75e6,-1.274e7/0.172+11.75e6/0.172),
         #NEW vertical and horizontal line 2
@@ -217,11 +270,23 @@ expand_borders<-function(x,
         #bottom lim and line 2
         c(lim2*0.565-0.984e7,-lim2),
         #line 2 and vertical line 1
-        c(-1.114e7,-0.984e7/0.565+1.114e7/0.565),
+        c(-1.113e7,-0.984e7/0.565+1.113e7/0.565),
         #vertical and horizontal line 1
-        c(-1.114e7,0.29e7),
-        #horizontal line 1 and line 2
-        c(-0.565*0.29e7-0.984e7,0.29e7),
+        c(-1.113e7,0.288e7),
+        # #horizontal line 1 and line 2
+        # c(-0.565*0.288e7-0.984e7,0.288e7),
+        #horizontal line 1 and NEW vertical line 8
+        c(-1.121e7,0.288e7),
+        #NEW vertical and horizontal line 8
+        c(-1.121e7,2.93e6),
+        #NEW horizontal line 8 and line 2
+        c(-0.565*2.93e6-0.984e7,2.93e6),
+        #line 2 and NEW horizontal line 7
+        c(-0.565*3.01e6-0.984e7,3.01e6),
+        #NEW horizontal and vertical line 7
+        c(-1.159e7,3.01e6),
+        #NEW vertical line 7 and line 2
+        c(-1.159e7,-0.984e7/0.565+1.159e7/0.565),
         #line 2 and vertical line 2
         c(-1.17e7,-0.984e7/0.565+1.17e7/0.565),
         #vertical and horizontal line 2
@@ -257,8 +322,9 @@ expand_borders<-function(x,
                        lim+wd,
                        lim+wd,
                        -lim-wd))
-    rectangle<-terra::buffer(terra::erase(terra::vect(rectangle,"polygons"),
-                                          terra::vect(cropper,"polygons")),
+    rect1<-terra::erase(terra::vect(rectangle,"polygons"),
+                        terra::vect(cropper,"polygons"))
+    rectangle<-terra::buffer(rect1,
                              width=frame_tol)
 
     vals<-terra::values(out.prj)
@@ -271,12 +337,180 @@ expand_borders<-function(x,
 
     inds<-which(terra::is.related(out.prj,rectangle,"intersects"))
     if(length(inds)>0){
+      bl<-lt<-tr<-rb<-TRUE
       for(i in inds){
-        tmp<-terra::aggregate(terra::union(out.prj[i],rectangle))
+        tmp<-terra::union(out.prj[i],rectangle)
+        tmp<-terra::geom(tmp[length(tmp)])
+        coords<-terra::vect(tmp[,c("x","y"),drop=FALSE],"points")
+
+        #border detection not perfect...buffering helps, but doesn't seem to get all cases...
+        on.border<-terra::is.related(terra::buffer(coords,pt_tol),
+                                     terra::vect(rbind(cropper,cropper[1,]),"lines"),
+                                     "intersects")
+
+        # terra::plot(coords)
+        # terra::plot(terra::vect(cropper,"lines"),add=TRUE)
+        # points(coords[on.border,],col="red")
+
+        if(any(on.border)){
+          foc.coords<-tmp[on.border,c("x","y"),drop=FALSE]
+          angs<-atan2(foc.coords[,2],foc.coords[,1])
+
+          slices<-findInterval(angs,c(-pi,-3*pi/4,-pi/4,pi/4,3*pi/4,pi))
+          #1,5-->left lim
+          #2-->bottom lim
+          #3-->right lim
+          #4-->top lim
+
+          angs<-(foc.coords[,2]-cent[2])/(foc.coords[,1]-cent[1])
+
+          for(j in unique(slices)){
+            tmp.inds<-slices==j
+            # y=angs*x-angs*-3.75e6+2e6
+            # y=angs*(x+3.75e6)+2e6
+            foc.coords[tmp.inds,]<-switch(j,
+                                          cbind(-lim-wd,
+                                                angs[tmp.inds]*(-lim-wd-cent[1])+cent[2]),
+                                          cbind((-lim-wd-cent[2])/angs[tmp.inds]+cent[1],
+                                                -lim-wd),
+                                          cbind(lim+wd,
+                                                angs[tmp.inds]*(lim+wd-cent[1])+cent[2]),
+                                          cbind((lim+wd-cent[2])/angs[tmp.inds]+cent[1],
+                                                lim+wd),
+                                          cbind(-lim-wd,
+                                                angs[tmp.inds]*(-lim-wd-cent[1])+cent[2]))
+          }
+          tmp[on.border,c("x","y")]<-foc.coords
+
+          #insert corners...
+          #technically don't need to check for corners after they're found first time...
+          #just a way to optimize later on
+          #also would probably be best to do a loop
+          if(bl|lt|tr|rb){
+            b.checks<-tmp[,c("y","x","y","x"),drop=FALSE]==do.call(cbind,
+                                                                   lapply(c(-lim-wd,
+                                                                            -lim-wd,
+                                                                            lim+wd,
+                                                                            lim+wd),
+                                                                          rep,each=nrow(tmp)))
+            colnames(b.checks)<-c("bb","ll","tt","rr")
+            tmp<-cbind(tmp,
+                       b.checks)
+            for(j in unique(tmp[,"part"])){
+              if(bl|lt|tr|rb){
+                p.inds.tf<-tmp[,"part"]==j
+                p.inds<-which(p.inds.tf)
+                nn<-length(p.inds)
+                if(bl){
+                  if(any(tmp[p.inds,"bb"]&tmp[p.inds,"ll"])&bl){
+                    bl<-FALSE
+                  }else{
+                    corner.check<-(tmp[p.inds[c(2:nn,1)],"bb"]&tmp[p.inds,"ll"])|
+                      (tmp[p.inds[c(2:nn,1)],"ll"]&tmp[p.inds,"bb"])
+                    if(any(corner.check)){
+                      if(sum(corner.check)>1) stop()
+                      tmp.inds<-p.inds[corner.check] #should always be length 1
+                      tmp.tmp<-tmp[tmp.inds,,drop=FALSE]
+                      tmp.tmp[,c("x","y","bb","ll","tt","rr")]<-c(-lim-wd,-lim-wd,1,1,0,0)
+                      tmp<-rbind(tmp[seq_len(tmp.inds),,drop=FALSE],
+                                 tmp.tmp,
+                                 tmp[-seq_len(tmp.inds),,drop=FALSE])
+                      p.inds.tf<-append(p.inds.tf,TRUE,tmp.inds)
+                      p.inds<-which(p.inds.tf)
+                      nn<-nn+1
+                      bl<-FALSE
+                    }
+                  }
+                }
+                if(lt){
+                  if(any(tmp[p.inds,"ll"]&tmp[p.inds,"tt"])){
+                    lt<-FALSE
+                  }else{
+                    corner.check<-(tmp[p.inds[c(2:nn,1)],"ll"]&tmp[p.inds,"tt"])|
+                      (tmp[p.inds[c(2:nn,1)],"tt"]&tmp[p.inds,"ll"])
+                    if(any(corner.check)){
+                      if(sum(corner.check)>1) stop()
+                      tmp.inds<-p.inds[corner.check] #should always be length 1
+                      tmp.tmp<-tmp[tmp.inds,,drop=FALSE]
+                      tmp.tmp[,c("x","y","bb","ll","tt","rr")]<-c(-lim-wd,lim+wd,0,1,1,0)
+                      tmp<-rbind(tmp[seq_len(tmp.inds),,drop=FALSE],
+                                 tmp.tmp,
+                                 tmp[-seq_len(tmp.inds),,drop=FALSE])
+                      p.inds.tf<-append(p.inds.tf,TRUE,tmp.inds)
+                      p.inds<-which(p.inds.tf)
+                      nn<-nn+1
+                      lt<-FALSE
+                    }
+                  }
+                }
+                if(tr){
+                  if(any(tmp[p.inds,"tt"]&tmp[p.inds,"rr"])){
+                    tr<-FALSE
+                  }else{
+                    corner.check<-(tmp[p.inds[c(2:nn,1)],"tt"]&tmp[p.inds,"rr"])|
+                      (tmp[p.inds[c(2:nn,1)],"rr"]&tmp[p.inds,"tt"])
+                    if(any(corner.check)){
+                      if(sum(corner.check)>1) stop()
+                      tmp.inds<-p.inds[corner.check] #should always be length 1
+                      tmp.tmp<-tmp[tmp.inds,,drop=FALSE]
+                      tmp.tmp[,c("x","y","bb","ll","tt","rr")]<-c(lim+wd,lim+wd,0,0,1,1)
+                      tmp<-rbind(tmp[seq_len(tmp.inds),,drop=FALSE],
+                                 tmp.tmp,
+                                 tmp[-seq_len(tmp.inds),,drop=FALSE])
+                      p.inds.tf<-append(p.inds.tf,TRUE,tmp.inds)
+                      p.inds<-which(p.inds.tf)
+                      nn<-nn+1
+                      tr<-FALSE
+                    }
+                  }
+                }
+                if(rb){
+                  if(any(tmp[p.inds,"rr"]&tmp[p.inds,"bb"])){
+                    rb<-FALSE
+                  }else{
+                    corner.check<-(tmp[p.inds[c(2:nn,1)],"rr"]&tmp[p.inds,"bb"])|
+                      (tmp[p.inds[c(2:nn,1)],"bb"]&tmp[p.inds,"rr"])
+                    if(any(corner.check)){
+                      if(sum(corner.check)>1) stop()
+                      tmp.inds<-p.inds[corner.check] #should always be length 1
+                      tmp.tmp<-tmp[tmp.inds,,drop=FALSE]
+                      tmp.tmp[,c("x","y","bb","ll","tt","rr")]<-c(lim+wd,-lim-wd,1,0,0,1)
+                      tmp<-rbind(tmp[seq_len(tmp.inds),,drop=FALSE],
+                                 tmp.tmp,
+                                 tmp[-seq_len(tmp.inds),,drop=FALSE])
+                      p.inds.tf<-append(p.inds.tf,TRUE,tmp.inds)
+                      p.inds<-which(p.inds.tf)
+                      nn<-nn+1
+                      rb<-FALSE
+                    }
+                  }
+                }
+              }
+            }
+            tmp<-tmp[,1:5,drop=FALSE]
+          }
+          tmp<-terra::aggregate(terra::union(out.prj[i],terra::buffer(terra::vect(tmp,"polygons"),0)))
+        }else{
+          tmp<-out.prj[i]
+        }
         terra::values(tmp)<-terra::values(out.prj)[i,,drop=FALSE]
         out.prj<-rbind(out.prj,tmp)
+
       }
       out.prj<-out.prj[-inds]
+
+      #deal with negative space
+      neg.space<-terra::union(rect1,terra::aggregate(out.prj))[1]
+      if(length(out.prj)==1&merge_neg_space){
+        tmp<-terra::aggregate(terra::union(out.prj,terra::buffer(neg.space,neg_space_tol)))
+        terra::values(tmp)<-terra::values(out.prj)
+        out.prj<-tmp
+      }else{
+        vals<-terra::values(out.prj)[length(out.prj)+1,]
+        vals[["TEMPORARY_ORDER"]]<-length(out.prj)+1
+        terra::values(neg.space)<-vals
+        out.prj<-rbind(out.prj,neg.space)
+      }
     }
 
     out.prj<-terra::sort(out.prj,v="TEMPORARY_ORDER")

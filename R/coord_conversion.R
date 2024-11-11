@@ -65,7 +65,7 @@ spilhaus2lonlat.SpatVector<-function(dat,
   revalidate_geoms[is.na(revalidate_geoms)]<-TRUE
   revalidate_geoms<-rep(revalidate_geoms,length.out=2)
   if(revalidate_geoms[1]){
-    dat<-terra::buffer(dat,0)
+    dat<-.revalidate.geoms(dat)
   }
 
   if(dissolve){
@@ -218,7 +218,7 @@ lonlat2spilhaus.SpatVector<-function(dat,
   revalidate_geoms[is.na(revalidate_geoms)]<-TRUE
   revalidate_geoms<-rep(revalidate_geoms,length.out=3)
   if(revalidate_geoms[1]){
-    dat<-terra::buffer(dat,0)
+    dat<-.revalidate.geoms(dat)
   }
 
   if(patch){

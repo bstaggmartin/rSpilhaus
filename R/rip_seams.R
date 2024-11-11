@@ -1,3 +1,5 @@
+#add in warning about point data being erased by corners?
+
 #' @export
 rip_spilhaus_seam<-function(x,
                             NA_tol=1.1e6,

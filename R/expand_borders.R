@@ -7,6 +7,15 @@
 #maybe use angle wrt to...
 # abline(v=-3.75e6,h=2e6)
 #ended up making it an argument "center"
+#11/6 --> got it all working with no artifacts at any rnaturalearth resolution for now...
+#looks ugly with multiple pieces of geometry and frame=TRUE, but it will suffice for now...
+#merge_neg_space controls whether or not negative space in frame is merged with rest of frame
+#(only does so with 1 piece of geometry--otherwise which one do we merge it with?)
+#frame_tol controls how much frame is extended into geometries to detect/resolve intersections
+#border_tol controls the distance to the frame border used to detect points of polygons lying on borders
+#(and thus which points need to be extended to border)
+
+#it all seems to be working reasonbaly well now, but should really clean up the function!
 
 #' @export
 expand_borders<-function(x,
@@ -14,11 +23,12 @@ expand_borders<-function(x,
                          seam_width=1000,
                          prettify=FALSE,
                          frame=FALSE,
+                         dissolve=TRUE,
                          frame_tol=15,
-                         pt_tol=0.1,
-                         cent=c(-3e6,3e6),
                          merge_neg_space=TRUE,
                          neg_space_tol=5,
+                         border_tol=0.1,
+                         cent=c(-3e6,3e6),
                          revalidate_geoms=TRUE){
 
   if(amount>1|amount<0){
@@ -39,28 +49,79 @@ expand_borders<-function(x,
 
   geom.type<-terra::geomtype(x)
   lim<-11825474
-  tmp<-terra::geom(x)
+  ext.amount<-2*amount*lim
+  tmp.crop<-function(x,left=NA,top=NA,lab){
+    if(is.na(left)){
+      x0<- -lim
+      x1<-lim
+    }else if(left){
+      x0<- -lim
+      x1<- -lim+ext.amount
+    }else{
+      x0<-lim-ext.amount
+      x1<-lim
+    }
+    if(is.na(top)){
+      y0<- -lim
+      y1<-lim
+    }else if(top){
+      y0<-lim-ext.amount
+      y1<-lim
+    }else{
+      y0<- -lim
+      y1<- -lim+ext.amount
+    }
+    out<-terra::crop(x,terra::vect(cbind(c(x0,x1),
+                                         c(y0,y1)),
+                                   "points"),
+                     ext=TRUE)
+    vals<-terra::values(out)$TEMPORARY_ORDER
+    out<-terra::geom(out)
+    cbind(out,
+          "TEMPORARY_ORDER"=vals[out[,"geom"]],
+          "TEMPORARY_LABEL"=if(nrow(out)) lab else NULL)
+  }
   rotate<-function(x,ang,org=c(0,0)){
-    x[,c("x","y")]<-matrix(c(cos(ang)*(x[,"x"]-org[1])-
-                               sin(ang)*(x[,"y"]-org[2])+
-                               org[1],
-                             sin(ang)*(x[,"x"]-org[1])+
-                               cos(ang)*(x[,"y"]-org[2])+
-                               org[2]),
-                           ncol=2)
+    if(nrow(x)>0&ang!=0){
+      x[,c("x","y")]<-matrix(c(cos(ang)*(x[,"x"]-org[1])-
+                                 sin(ang)*(x[,"y"]-org[2])+
+                                 org[1],
+                               sin(ang)*(x[,"x"]-org[1])+
+                                 cos(ang)*(x[,"y"]-org[2])+
+                                 org[2]),
+                             ncol=2)
+    }
     x
   }
-  tmp.prj<-terra::vect(do.call(rbind,list(rotate(tmp,pi,c(-lim,lim)),
-                                          rotate(tmp,pi/2,c(-lim,-lim)),
-                                          rotate(tmp,pi,c(-lim,-lim)),
-                                          rotate(tmp,-pi/2,c(lim,lim)),
-                                          rotate(tmp,0,c(0,0)),
-                                          rotate(tmp,-pi/2,c(-lim,-lim)),
-                                          rotate(tmp,pi,c(lim,lim)),
-                                          rotate(tmp,pi/2,c(lim,lim)),
-                                          rotate(tmp,pi,c(lim,-lim)))),
-                       geom.type)
-  seams<-c(-3*lim,3*lim)
+  #may be a more efficient way to do this, but fine for now...
+  tmp.prj<-do.call(rbind,list(rotate(tmp.crop(x,left=TRUE,top=TRUE,lab=1),
+                                     pi,c(-lim,lim)),
+                              rotate(tmp.crop(x,left=NA,top=FALSE,lab=2),
+                                     pi/2,c(-lim,-lim)),
+                              rotate(tmp.crop(x,left=TRUE,top=FALSE,lab=3),
+                                     pi,c(-lim,-lim)),
+                              rotate(tmp.crop(x,left=FALSE,top=NA,lab=4),
+                                     -pi/2,c(lim,lim)),
+                              rotate(tmp.crop(x,lab=5),
+                                     0,c(0,0)),
+                              rotate(tmp.crop(x,left=TRUE,top=NA,lab=6),
+                                     -pi/2,c(-lim,-lim)),
+                              rotate(tmp.crop(x,left=FALSE,top=TRUE,lab=7),
+                                     pi,c(lim,lim)),
+                              rotate(tmp.crop(x,left=NA,top=TRUE,lab=8),
+                                     pi/2,c(lim,lim)),
+                              rotate(tmp.crop(x,left=FALSE,top=FALSE,lab=9),
+                                     pi,c(lim,-lim))))
+  #needed to fix this up to keep more craeful track of geometry...
+  tmp.pos<-which(!duplicated(tmp.prj[,c("TEMPORARY_ORDER","TEMPORARY_LABEL")]))
+  tmp.geoms<-inverse.rle(list(values=seq_along(tmp.pos),
+                              lengths=c(tmp.pos[-1],nrow(tmp.prj)+1)-tmp.pos))
+  geom.ids<-tmp.prj[tmp.pos,"TEMPORARY_ORDER"]
+  tmp.prj<-tmp.prj[,1:(ncol(tmp.prj)-2),drop=FALSE]
+  tmp.prj[,"geom"]<-tmp.geoms
+  tmp.prj<-terra::vect(tmp.prj,
+                       type=geom.type)
+  seams<-c(-lim-ext.amount,lim+ext.amount)
   seams<-terra::vect(list(cbind(seams,-lim),
                           cbind(seams,lim),
                           cbind(-lim,seams),
@@ -71,41 +132,44 @@ expand_borders<-function(x,
                        capstyle="square")
 
   nn<-length(x)
-  out.prj<-NULL
-  for(i in 1:nn){
-    tmp<-tmp1<-terra::aggregate(tmp.prj[(0:8)*nn+i])
-    if(geom.type=="polygons"&terra::is.related(tmp1,seams,"intersects")){
-      uni<-terra::union(tmp1,seams)
-      tmp<-terra::disagg(uni[3])
-      uni<-terra::aggregate(uni)
-      #better approach --> centroids of bounding boxes...
-      if(length(tmp)>1){
-        tmpy<-terra::geom(tmp)
-        cents<-cbind((tapply(tmpy[,"x"],tmpy[,"geom"],min)+
-                        tapply(tmpy[,"x"],tmpy[,"geom"],max))/2,
-                     (tapply(tmpy[,"y"],tmpy[,"geom"],min)+
-                        tapply(tmpy[,"y"],tmpy[,"geom"],max))/2)
+  out.prj<-vector("list",nn)
+  for(i in 1:length(x)){
+    tmp<-tmp.prj[geom.ids==i]
+    if(length(tmp)>1){
+      tmp<-tmp1<-terra::aggregate(tmp,dissolve=dissolve)
+      if(dissolve&geom.type=="polygons"){
+        if(terra::is.related(tmp1,seams,"intersects")){
+          uni<-terra::union(tmp1,seams)
+          tmp<-terra::disagg(uni[3])
+          uni<-terra::aggregate(uni)
+          #better approach --> centroids of bounding boxes...
+          if(length(tmp)>1){
+            tmpy<-terra::geom(tmp)
+            cents<-cbind((tapply(tmpy[,"x"],tmpy[,"geom"],min)+
+                            tapply(tmpy[,"x"],tmpy[,"geom"],max))/2,
+                         (tapply(tmpy[,"y"],tmpy[,"geom"],min)+
+                            tapply(tmpy[,"y"],tmpy[,"geom"],max))/2)
 
-        terra::values(tmp)<-
-          data.frame(
-            "TEMPORARY_GRP"=cutree(hclust(dist(cents)),h=2*seam_width)
-          )
-      }else{
-        terra::values(tmp)<-data.frame("TEMPORARY_GRP"=1)
+            terra::values(tmp)<-
+              data.frame(
+                "TEMPORARY_GRP"=cutree(hclust(dist(cents)),h=2*seam_width)
+              )
+          }else{
+            terra::values(tmp)<-data.frame("TEMPORARY_GRP"=1)
+          }
+          tmp<-terra::aggregate(terra::convHull(tmp,by="TEMPORARY_GRP"))
+          #I think if I take the difference between the hulls and the union of x and the seams...
+          #in other words, just crop convex hulls with entire union of geom and seams!
+          tmp<-terra::crop(tmp,uni)
+          tmp<-terra::aggregate(terra::union(tmp1,tmp))
+        }
       }
-      tmp<-terra::aggregate(terra::convHull(tmp,by="TEMPORARY_GRP"))
-      #I think if I take the difference between the hulls and the union of x and the seams...
-      #in other words, just crop convex hulls with entire union of geom and seams!
-      tmp<-terra::crop(tmp,uni)
-      tmp<-terra::aggregate(terra::union(tmp1,tmp))
     }
     terra::values(tmp)<-terra::values(x)[i,,drop=FALSE]
-    if(is.null(out.prj)){
-      out.prj<-tmp
-    }else{
-      out.prj<-rbind(out.prj,tmp)
-    }
+    out.prj[[i]]<-tmp
+    # cat("\n",i)
   }
+  out.prj<-do.call(rbind,out.prj)
 
   out.prj<-terra::sort(out.prj,v="TEMPORARY_ORDER")
   vals<-terra::values(out.prj)
@@ -344,7 +408,7 @@ expand_borders<-function(x,
         coords<-terra::vect(tmp[,c("x","y"),drop=FALSE],"points")
 
         #border detection not perfect...buffering helps, but doesn't seem to get all cases...
-        on.border<-terra::is.related(terra::buffer(coords,pt_tol),
+        on.border<-terra::is.related(terra::buffer(coords,border_tol),
                                      terra::vect(rbind(cropper,cropper[1,]),"lines"),
                                      "intersects")
 
@@ -520,7 +584,7 @@ expand_borders<-function(x,
   }
 
   if(revalidate_geoms){
-    terra::buffer(out.prj,width=0)
+    .revalidate.geoms(out.prj)
   }else{
     out.prj
   }

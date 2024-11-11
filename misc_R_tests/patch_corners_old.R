@@ -12,10 +12,6 @@
 # only seems to be an approx...
 #oh man, but then which quadrant you use seems ambiguous--how to figure this out?
 
-#ended up using dot products to select whichever quadrant "disturbs" slope of line the least
-#seems to be working pretty well!
-#could probably improve magic corner patching with similar functionality, but not necessary for now...
-
 .magic.corner.patcher<-function(x,
                                 top,
                                 left,
@@ -222,8 +218,6 @@ patch_corners<-function(x,
               # BUT this will always be the case for SA/Asia!
               fw<-ll[,"y"]>ll[,"x"]+2*lim-NA_tol
               bw<-rr[,"y"]>rr[,"x"]+2*lim-NA_tol
-
-              ###CAN SIMPLIFY THIS FOR SURE###
               if(fw){
                 new.coord<-last.coord<-ll
                 next.coord<-rr
@@ -251,22 +245,32 @@ patch_corners<-function(x,
               tmp.tmp<-vv.tmp.coord-last.coord[,c("x","y")]
               vv.dot<-abs(sum(tmp.tmp*last.last.coord)/
                             sqrt(sum(tmp.tmp^2)*sum(last.last.coord^2)))
-              #add in diagonal case
-              tmp.tmp<-c(-lim,lim)-last.coord[,c("x","y")]
-              dd.dot<-abs(sum(tmp.tmp*last.last.coord)/
-                            sqrt(sum(tmp.tmp^2)*sum(last.last.coord^2)))
-              tmp.max<-which.max(c(hh.dot,vv.dot,dd.dot))
-              new.coord[,c("x","y")]<-switch(tmp.max,
-                                             c((hh.tmp.coord[1]-last.coord[,"x"])/
-                                                 (hh.tmp.coord[2]-last.coord[,"y"])*
-                                                 (lim-last.coord[,"y"])+last.coord[,"x"],
-                                               lim),
-                                             c(-lim,
-                                               (vv.tmp.coord[2]-last.coord[,"y"])/
-                                                 (vv.tmp.coord[1]-last.coord[,"x"])*
-                                                 (-lim-last.coord[,"x"])+last.coord[,"y"]),
-                                             c(-lim,lim))
+              if(vv.dot>hh.dot){
+                next.coord[,c("x","y")]<-vv.tmp.coord
+              }else{
+                next.coord[,c("x","y")]<-hh.tmp.coord
+              }
+              #now find intersection...
+              #there must be better way to decide whether to intersect with
+              #vert or horizontal border...
+              #maybe something more elegant, but what about a quick distance test?
+              #the correct coordinate should ALWAYS be closer to next coord...
+              v.int<-c(-lim,
+                       (next.coord[,"y"]-last.coord[,"y"])/
+                         (next.coord[,"x"]-last.coord[,"x"])*
+                         (-lim-last.coord[,"x"])+last.coord[,"y"])
+              h.int<-c((next.coord[,"x"]-last.coord[,"x"])/
+                         (next.coord[,"y"]-last.coord[,"y"])*
+                         (lim-last.coord[,"y"])+last.coord[,"x"],
+                       lim)
 
+              v.dist<-sum((next.coord[,c("x","y")]-v.int)^2)
+              h.dist<-sum((next.coord[,c("x","y")]-h.int)^2)
+              if(v.dist<h.dist){
+                new.coord[,c("x","y")]<-v.int
+              }else{
+                new.coord[,c("x","y")]<-h.int
+              }
               #one edge case here...
               if(rr.ind==1&bw){
                 tmp<-rbind(new.coord,
@@ -322,51 +326,37 @@ patch_corners<-function(x,
               rr<-tmp[rr.ind,,drop=FALSE]
               fw<-ll[,"y"]<ll[,"x"]-2*lim+NA_tol
               bw<-rr[,"y"]<rr[,"x"]-2*lim+NA_tol
-
-              ###CAN SIMPLIFY THIS FOR SURE###
               if(fw){
                 new.coord<-last.coord<-ll
                 next.coord<-rr
-                last.ind<-ll.ind-1
               }else if(bw){
                 new.coord<-last.coord<-rr
                 next.coord<-ll
-                last.ind<-rr.ind+1
               }else{
                 next
               }
-              #actually 2 choices for next coord...
-              #probably should pick whichever disturbs slope the least--annoying...
-              #but certainly not impossible
-              last.last.coord<-tmp[last.ind,c("x","y")]-last.coord[,c("x","y")]
-              tmp.coord<-c(next.coord[,"x"]+lim,
-                           next.coord[,"y"]-lim)
-              hh.tmp.coord<-c(cos(-pi/2)*tmp.coord[1]-sin(-pi/2)*tmp.coord[2]+lim,
-                              sin(-pi/2)*tmp.coord[1]+cos(-pi/2)*tmp.coord[2]-lim)
-              vv.tmp.coord<-c(cos(pi/2)*tmp.coord[1]-sin(pi/2)*tmp.coord[2]+lim,
-                              sin(pi/2)*tmp.coord[1]+cos(pi/2)*tmp.coord[2]-lim)
-              tmp.tmp<-hh.tmp.coord-last.coord[,c("x","y")]
-              hh.dot<-abs(sum(tmp.tmp*last.last.coord)/
-                            sqrt(sum(tmp.tmp^2)*sum(last.last.coord^2)))
-              tmp.tmp<-vv.tmp.coord-last.coord[,c("x","y")]
-              vv.dot<-abs(sum(tmp.tmp*last.last.coord)/
-                            sqrt(sum(tmp.tmp^2)*sum(last.last.coord^2)))
-              #add in diagonal case
-              tmp.tmp<-c(lim,-lim)-last.coord[,c("x","y")]
-              dd.dot<-abs(sum(tmp.tmp*last.last.coord)/
-                            sqrt(sum(tmp.tmp^2)*sum(last.last.coord^2)))
-              tmp.max<-which.max(c(hh.dot,vv.dot,dd.dot))
-              new.coord[,c("x","y")]<-switch(tmp.max,
-                                             c((hh.tmp.coord[1]-last.coord[,"x"])/
-                                                 (hh.tmp.coord[2]-last.coord[,"y"])*
-                                                 (-lim-last.coord[,"y"])+last.coord[,"x"],
-                                               -lim),
-                                             c(lim,
-                                               (vv.tmp.coord[2]-last.coord[,"y"])/
-                                                 (vv.tmp.coord[1]-last.coord[,"x"])*
-                                                 (lim-last.coord[,"x"])+last.coord[,"y"]),
-                                             c(lim,-lim))
+              next.coord[,c("x","y")]<-next.coord[,c("y","x")]
+              #now find intersection...
+              #there must be better way to decide whether to intersect with
+              #vert or horizontal border...
+              #maybe something more elegant, but what about a quick distance test?
+              #the correct coordinate should ALWAYS be closer to next coord...
+              v.int<-c(lim,
+                       (next.coord[,"y"]-last.coord[,"y"])/
+                         (next.coord[,"x"]-last.coord[,"x"])*
+                         (lim-last.coord[,"x"])+last.coord[,"y"])
+              h.int<-c((next.coord[,"x"]-last.coord[,"x"])/
+                         (next.coord[,"y"]-last.coord[,"y"])*
+                         (-lim-last.coord[,"y"])+last.coord[,"x"],
+                       -lim)
 
+              v.dist<-sum((next.coord[,c("x","y")]-v.int)^2)
+              h.dist<-sum((next.coord[,c("x","y")]-h.int)^2)
+              if(v.dist<h.dist){
+                new.coord[,c("x","y")]<-v.int
+              }else{
+                new.coord[,c("x","y")]<-h.int
+              }
               #one edge case here...
               if(rr.ind==1&bw){
                 tmp<-rbind(new.coord,
@@ -424,79 +414,38 @@ patch_corners<-function(x,
               ll.ind<-max(which(tmp[,"part"]==j))
               rr.ind<-ll.ind+1
               if(rr.ind>nrow(tmp)) rr.ind<-1
-              last.ind<-ll.ind-1
-              next.ind<-rr.ind+1
-              if(next.ind>nrow(tmp)) next.ind<-1
               #note: here, either both ll and rr will be TRUE or both will be FALSE
               ll<-tmp[ll.ind,,drop=FALSE]
               rr<-tmp[rr.ind,,drop=FALSE]
               fw<-ll[,"y"]< -ll[,"x"]-2*lim+SA_tol
               if(fw){
+                rr.new.coord<-ll.next.coord<-rr
+                ll.new.coord<-rr.next.coord<-ll
 
-                ll.new.coord<-ll
-                rr.new.coord<-rr
+                ll.next.coord[,c("x","y")]<- -(ll.next.coord[,c("x","y")]+lim)-lim
+                #here, it's best to use intersection limits to pick horizontal vs vertical line
+                ll.new.coord[,c("x","y")]<-c(-lim,
+                                             (ll.next.coord[,"y"]-ll[,"y"])/
+                                               (ll.next.coord[,"x"]-ll[,"x"])*
+                                               (-lim-ll[,"x"])+ll[,"y"])
+                if(ll.new.coord[,"y"]< -lim){
+                  ll.new.coord[,c("x","y")]<-c((ll.next.coord[,"x"]-ll[,"x"])/
+                                                 (ll.next.coord[,"y"]-ll[,"y"])*
+                                                 (-lim-ll[,"y"])+ll[,"x"],
+                                               -lim)
+                }
 
-                #for ll first...
-                last.last.coord<-tmp[last.ind,c("x","y")]-ll[,c("x","y")]
-                tmp.coord<-c(rr[,"x"]+lim,
-                             rr[,"y"]+lim)
-                hh.tmp.coord<-c(cos(-pi/2)*tmp.coord[1]-sin(-pi/2)*tmp.coord[2]-lim,
-                                sin(-pi/2)*tmp.coord[1]+cos(-pi/2)*tmp.coord[2]-lim)
-                vv.tmp.coord<-c(cos(pi/2)*tmp.coord[1]-sin(pi/2)*tmp.coord[2]-lim,
-                                sin(pi/2)*tmp.coord[1]+cos(pi/2)*tmp.coord[2]-lim)
-                tmp.tmp<-hh.tmp.coord-ll[,c("x","y")]
-                hh.dot<-abs(sum(tmp.tmp*last.last.coord)/
-                              sqrt(sum(tmp.tmp^2)*sum(last.last.coord^2)))
-                tmp.tmp<-vv.tmp.coord-ll[,c("x","y")]
-                vv.dot<-abs(sum(tmp.tmp*last.last.coord)/
-                              sqrt(sum(tmp.tmp^2)*sum(last.last.coord^2)))
-                #add in diagonal case
-                tmp.tmp<-c(-lim,-lim)-ll[,c("x","y")]
-                dd.dot<-abs(sum(tmp.tmp*last.last.coord)/
-                              sqrt(sum(tmp.tmp^2)*sum(last.last.coord^2)))
-                tmp.max<-which.max(c(hh.dot,vv.dot,dd.dot))
-                ll.new.coord[,c("x","y")]<-switch(tmp.max,
-                                                  c((hh.tmp.coord[1]-ll[,"x"])/
-                                                      (hh.tmp.coord[2]-ll[,"y"])*
-                                                      (-lim-ll[,"y"])+ll[,"x"],
-                                                    -lim),
-                                                  c(-lim,
-                                                    (vv.tmp.coord[2]-ll[,"y"])/
-                                                      (vv.tmp.coord[1]-ll[,"x"])*
-                                                      (-lim-ll[,"x"])+ll[,"y"]),
-                                                  c(-lim,-lim))
-
-                #then for rr...
-                last.last.coord<-tmp[next.ind,c("x","y")]-rr[,c("x","y")]
-                tmp.coord<-c(ll[,"x"]+lim,
-                             ll[,"y"]+lim)
-                hh.tmp.coord<-c(cos(-pi/2)*tmp.coord[1]-sin(-pi/2)*tmp.coord[2]-lim,
-                                sin(-pi/2)*tmp.coord[1]+cos(-pi/2)*tmp.coord[2]-lim)
-                vv.tmp.coord<-c(cos(pi/2)*tmp.coord[1]-sin(pi/2)*tmp.coord[2]-lim,
-                                sin(pi/2)*tmp.coord[1]+cos(pi/2)*tmp.coord[2]-lim)
-                #oddly enough, seems like tmp.coord should flip if diagonal is the way to go...
-                #actually unnecessarry, because you can just stick corner coord in
-                dd.tmp.coord<-c(-lim,-lim)
-                tmp.tmp<-hh.tmp.coord-rr[,c("x","y")]
-                hh.dot<-abs(sum(tmp.tmp*last.last.coord)/
-                              sqrt(sum(tmp.tmp^2)*sum(last.last.coord^2)))
-                tmp.tmp<-vv.tmp.coord-rr[,c("x","y")]
-                vv.dot<-abs(sum(tmp.tmp*last.last.coord)/
-                              sqrt(sum(tmp.tmp^2)*sum(last.last.coord^2)))
-                tmp.tmp<-dd.tmp.coord-rr[,c("x","y")]
-                dd.dot<-abs(sum(tmp.tmp*last.last.coord)/
-                              sqrt(sum(tmp.tmp^2)*sum(last.last.coord^2)))
-                tmp.max<-which.max(c(hh.dot,vv.dot,dd.dot))
-                rr.new.coord[,c("x","y")]<-switch(tmp.max,
-                                                  c((hh.tmp.coord[1]-ll[,"x"])/
-                                                      (hh.tmp.coord[2]-ll[,"y"])*
-                                                      (-lim-ll[,"y"])+ll[,"x"],
-                                                    -lim),
-                                                  c(-lim,
-                                                    (vv.tmp.coord[2]-ll[,"y"])/
-                                                      (vv.tmp.coord[1]-ll[,"x"])*
-                                                      (-lim-ll[,"x"])+ll[,"y"]),
-                                                  c(-lim,-lim))
+                rr.next.coord[,c("x","y")]<- -(rr.next.coord[,c("x","y")]+lim)-lim
+                rr.new.coord[,c("x","y")]<-c(-lim,
+                                             (rr.next.coord[,"y"]-rr[,"y"])/
+                                               (rr.next.coord[,"x"]-rr[,"x"])*
+                                               (-lim-rr[,"x"])+rr[,"y"])
+                if(rr.new.coord[,"y"]< -lim){
+                  rr.new.coord[,c("x","y")]<-c((rr.next.coord[,"x"]-rr[,"x"])/
+                                                 (rr.next.coord[,"y"]-rr[,"y"])*
+                                                 (-lim-rr[,"y"])+rr[,"x"],
+                                               -lim)
+                }
                 #now figure out how to put both points in while accounting for edge cases...
                 if(rr.ind==1){
                   tmp<-rbind(rr.new.coord,
@@ -557,83 +506,38 @@ patch_corners<-function(x,
               ll.ind<-max(which(tmp[,"part"]==j))
               rr.ind<-ll.ind+1
               if(rr.ind>nrow(tmp)) rr.ind<-1
-              last.ind<-ll.ind-1
-              next.ind<-rr.ind+1
-              if(next.ind>nrow(tmp)) next.ind<-1
               #note: here, either both ll and rr will be TRUE or both will be FALSE
               ll<-tmp[ll.ind,,drop=FALSE]
               rr<-tmp[rr.ind,,drop=FALSE]
               fw<-ll[,"y"]> -ll[,"x"]+2*lim-Asia_tol
               if(fw){
+                rr.new.coord<-ll.next.coord<-rr
+                ll.new.coord<-rr.next.coord<-ll
 
-                ll.new.coord<-ll
-                rr.new.coord<-rr
+                ll.next.coord[,c("x","y")]<- -(ll.next.coord[,c("x","y")]-lim)+lim
+                #here, it's best to use intersection limits to pick horizontal vs vertical line
+                ll.new.coord[,c("x","y")]<-c(lim,
+                                             (ll.next.coord[,"y"]-ll[,"y"])/
+                                               (ll.next.coord[,"x"]-ll[,"x"])*
+                                               (lim-ll[,"x"])+ll[,"y"])
+                if(ll.new.coord[,"y"]>lim){
+                  ll.new.coord[,c("x","y")]<-c((ll.next.coord[,"x"]-ll[,"x"])/
+                                                 (ll.next.coord[,"y"]-ll[,"y"])*
+                                                 (lim-ll[,"y"])+ll[,"x"],
+                                               lim)
+                }
 
-                #for ll first...
-                last.last.coord<-tmp[last.ind,c("x","y")]-ll[,c("x","y")]
-                tmp.coord<-c(rr[,"x"]-lim,
-                             rr[,"y"]-lim)
-                hh.tmp.coord<-c(cos(-pi/2)*tmp.coord[1]-sin(-pi/2)*tmp.coord[2]+lim,
-                                sin(-pi/2)*tmp.coord[1]+cos(-pi/2)*tmp.coord[2]+lim)
-                vv.tmp.coord<-c(cos(pi/2)*tmp.coord[1]-sin(pi/2)*tmp.coord[2]+lim,
-                                sin(pi/2)*tmp.coord[1]+cos(pi/2)*tmp.coord[2]+lim)
-                tmp.tmp<-hh.tmp.coord-ll[,c("x","y")]
-                hh.dot<-abs(sum(tmp.tmp*last.last.coord)/
-                              sqrt(sum(tmp.tmp^2)*sum(last.last.coord^2)))
-                tmp.tmp<-vv.tmp.coord-ll[,c("x","y")]
-                vv.dot<-abs(sum(tmp.tmp*last.last.coord)/
-                              sqrt(sum(tmp.tmp^2)*sum(last.last.coord^2)))
-                #add in diagonal case
-                tmp.tmp<-c(lim,lim)-ll[,c("x","y")]
-                dd.dot<-abs(sum(tmp.tmp*last.last.coord)/
-                              sqrt(sum(tmp.tmp^2)*sum(last.last.coord^2)))
-                tmp.max<-which.max(c(hh.dot,vv.dot,dd.dot))
-                ll.new.coord[,c("x","y")]<-switch(tmp.max,
-                                                  c((hh.tmp.coord[1]-ll[,"x"])/
-                                                      (hh.tmp.coord[2]-ll[,"y"])*
-                                                      (lim-ll[,"y"])+ll[,"x"],
-                                                    lim),
-                                                  c(lim,
-                                                    (vv.tmp.coord[2]-ll[,"y"])/
-                                                      (vv.tmp.coord[1]-ll[,"x"])*
-                                                      (lim-ll[,"x"])+ll[,"y"]),
-                                                  c(lim,lim))
-
-                #WAIT--I guess, based on the last step, that you KNOW whether it should be
-                #vv, hh, or dd here (dd if last is dd, otherwise the reverse)
-                #definitely a good idea to go back and clean this all up!
-
-                #then for rr...
-                last.last.coord<-tmp[next.ind,c("x","y")]-rr[,c("x","y")]
-                tmp.coord<-c(ll[,"x"]-lim,
-                             ll[,"y"]-lim)
-                hh.tmp.coord<-c(cos(-pi/2)*tmp.coord[1]-sin(-pi/2)*tmp.coord[2]+lim,
-                                sin(-pi/2)*tmp.coord[1]+cos(-pi/2)*tmp.coord[2]+lim)
-                vv.tmp.coord<-c(cos(pi/2)*tmp.coord[1]-sin(pi/2)*tmp.coord[2]+lim,
-                                sin(pi/2)*tmp.coord[1]+cos(pi/2)*tmp.coord[2]+lim)
-                #oddly enough, seems like tmp.coord should flip if diagonal is the way to go...
-                #actually unnecessarry, because you can just stick corner coord in
-                dd.tmp.coord<-c(lim,lim)
-                tmp.tmp<-hh.tmp.coord-rr[,c("x","y")]
-                hh.dot<-abs(sum(tmp.tmp*last.last.coord)/
-                              sqrt(sum(tmp.tmp^2)*sum(last.last.coord^2)))
-                tmp.tmp<-vv.tmp.coord-rr[,c("x","y")]
-                vv.dot<-abs(sum(tmp.tmp*last.last.coord)/
-                              sqrt(sum(tmp.tmp^2)*sum(last.last.coord^2)))
-                tmp.tmp<-dd.tmp.coord-rr[,c("x","y")]
-                dd.dot<-abs(sum(tmp.tmp*last.last.coord)/
-                              sqrt(sum(tmp.tmp^2)*sum(last.last.coord^2)))
-                tmp.max<-which.max(c(hh.dot,vv.dot,dd.dot))
-                rr.new.coord[,c("x","y")]<-switch(tmp.max,
-                                                  c((hh.tmp.coord[1]-ll[,"x"])/
-                                                      (hh.tmp.coord[2]-ll[,"y"])*
-                                                      (lim-ll[,"y"])+ll[,"x"],
-                                                    lim),
-                                                  c(lim,
-                                                    (vv.tmp.coord[2]-ll[,"y"])/
-                                                      (vv.tmp.coord[1]-ll[,"x"])*
-                                                      (lim-ll[,"x"])+ll[,"y"]),
-                                                  c(lim,lim))
+                rr.next.coord[,c("x","y")]<- -(rr.next.coord[,c("x","y")]-lim)+lim
+                rr.new.coord[,c("x","y")]<-c(lim,
+                                             (rr.next.coord[,"y"]-rr[,"y"])/
+                                               (rr.next.coord[,"x"]-rr[,"x"])*
+                                               (lim-rr[,"x"])+rr[,"y"])
+                if(rr.new.coord[,"y"]< -lim){
+                  rr.new.coord[,c("x","y")]<-c((rr.next.coord[,"x"]-rr[,"x"])/
+                                                 (rr.next.coord[,"y"]-rr[,"y"])*
+                                                 (lim-rr[,"y"])+rr[,"x"],
+                                               lim)
+                }
                 #now figure out how to put both points in while accounting for edge cases...
                 if(rr.ind==1){
                   tmp<-rbind(rr.new.coord,

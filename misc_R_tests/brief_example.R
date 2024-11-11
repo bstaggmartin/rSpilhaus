@@ -1,18 +1,18 @@
 library(rSpilhaus)
 
 #download/aggregate land data (helpful for testing few large geoms)
-og<-terra::vect(rnaturalearth::ne_download(scale=50,
-                                           type="land",
-                                           category="physical"))
-og<-terra::aggregate(og)
+# og<-terra::vect(rnaturalearth::ne_download(scale=110,
+                                           # type="land",
+                                           # category="physical"))
+# og<-terra::aggregate(og)
 #OR get country map (helpful for testing many small geoms)
-# og<-terra::vect(rnaturalearth::countries110)
+og<-terra::vect(rnaturalearth::countries110)
 terra::plot(og)
 
-# lakes<-terra::vect(rnaturalearth::ne_download(scale=110,
-#                                               type="lakes",
-#                                               category="physical"))
-# og<-terra::erase(og,lakes)
+lakes<-terra::vect(rnaturalearth::ne_download(scale=110,
+                                              type="lakes",
+                                              category="physical"))
+og<-terra::erase(og,lakes)
 # lakes2spil<-lonlat2spilhaus(lakes)
 # og2spil<-terra::erase(og2spil,lakes2spil)
 # terra::plot(og2spil)
@@ -22,8 +22,8 @@ og2spil<-lonlat2spilhaus(og)
 terra::plot(og2spil)
 
 #expand borders via tiling
-# tiled<-expand_borders(og2spil)
-# terra::plot(tiled)http://127.0.0.1:14161/graphics/plot_zoom_png?width=1522&height=854
+tiled<-expand_borders(og2spil,amount=0.5)
+terra::plot(tiled)
 
 #expand borders via "prettifying"
 #I lifted the prettification border directly from Ricardo's code, but:
@@ -35,7 +35,7 @@ terra::plot(og2spil)
 #(probably just have to tweak existing coordinates a little bit)
 # terra::plot(expand_borders(og2spil,prettify=TRUE,frame=TRUE,cent=c(-3e6,3e6)))
 # debug(expand_borders)
-prettified<-expand_borders(og2spil,prettify=TRUE,frame=TRUE)
+prettified<-expand_borders(og2spil,prettify=TRUE,frame=TRUE,amount=0.051)
 #still getting minor artifact with land res of 50...
 terra::plot(prettified)
 
@@ -54,6 +54,8 @@ terra::plot(ecor2spil)
 ecor.tiled<-expand_borders(ecor2spil)
 terra::plot(ecor.tiled)
 
+#so prettify totally breaks here for some reason...seems related quadrant detection...
+#not a big deal here, so leave for later
 ecor.prettified<-expand_borders(ecor2spil,prettify=TRUE,frame=FALSE)
 terra::plot(ecor.prettified)
 
@@ -62,7 +64,7 @@ terra::plot(ecor2spil2ecor)
 
 #doing a quick mock up of a proper map...ish
 terra::plot(ecor.prettified,
-            col=hcl.colors(20,"dark2"),
+            col=hcl.colors(20,"dynamic"),
             lwd=1)
 terra::plot(expand_borders(og2spil,
                            prettify=TRUE,

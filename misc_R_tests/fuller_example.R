@@ -23,6 +23,98 @@ for(i in names(depth.vec)){
 }
 grats<-make_graticules(lon=15,lat=15)
 
+####RASTERS####
+
+# ne_download(scale=50,type="NE2_50M_SR",category="raster",destdir="misc_R_tests/rasters")
+lands<-ne_load(scale=50,type="NE2_50M_SR",category="raster",destdir="misc_R_tests/rasters")
+
+#the direct (but laborious) route
+# test<-as.data.frame(lands,xy=TRUE)
+#gonna take a loooong time...
+# test<-lonlat2spilhaus(test,lon="x",lat="y",x="spil_x",y="spil_y")
+# samp<-sample(nrow(test),1e5)
+# plot(test[samp,"spil_y"]~test[samp,"spil_x"],
+#      col=rgb(test[samp,"NE2_50M_SR_1"]/255,
+#              test[samp,"NE2_50M_SR_2"]/255,
+#              test[samp,"NE2_50M_SR_3"]/255),
+#      pch=16,cex=0.1)
+#works, but how does one interpolate efficiently???
+#maybe do a scaled-down version...
+testy<-aggregate(lands,60)
+# test<-as.data.frame(testy,xy=TRUE)
+# test<-lonlat2spilhaus(test,lon="x",lat="y",x="spil_x",y="spil_y")
+# plot(test[,"spil_y"]~test[,"spil_x"],
+#      col=rgb(test[,"NE2_50M_SR_1"]/255,
+#              test[,"NE2_50M_SR_2"]/255,
+#              test[,"NE2_50M_SR_3"]/255),
+#      pch=16,cex=0.1)
+#so the key is to take a grid of query points, then somehow use them to...
+# ...extract interpolated values from reprojected points!
+#but how to do this efficiently???
+#have a coarse grid and only load nearby "chunks", so to speak?
+
+
+#another, perhaps hackier, option...
+#also extremely taxing from a memory/time perspective...
+#not too bad when scaled down!
+testy2<-as.polygons(testy)
+plot(testy2,border=NA,col=rgb(values(testy2)[[1]]/255,0,0))
+#this currently breaks on corner patching step for South America + Asia...
+debug(patch_corners)
+spil.testy<-lonlat2spilhaus(testy2)
+
+#figured it out! You're thinking of things in reverse of how they should be
+#should just transfer spilhaus coords to lonlat than extract raster data...
+
+#things to improve...
+# - retain layer names
+# - deal with NA values (some way to do nearest neighbors on spilhaus end?)
+transfer_raster<-function(x,x_res=500,y_res=500,
+                          method="simple"){
+  lim<-11825474
+  xx<-seq(-lim+lim/x_res,lim-lim/x_res,length.out=x_res)
+  yy<-seq(-lim+lim/y_res,lim-lim/y_res,length.out=y_res)
+  tmp<-expand.grid("y"=yy,"x"=xx)[,2:1,drop=FALSE]
+  tmp<-spilhaus2lonlat(tmp,x="x",y="y",lon="lon",lat="lat")
+  vals<-terra::extract(x,as.matrix(tmp[,c("lon","lat")]),
+                       method=method)
+
+  #actually might be best to convert to data.frame?
+  #in case there are different types of raster data (i.e., not all numeric)
+  vals<-array(unlist(vals,use.names=FALSE),
+              c(y_res,x_res,ncol(vals)),
+              list(NULL,NULL,colnames(vals)))
+  vals<-vals[y_res:1,,,drop=FALSE]
+  out<-terra::rast(nrows=y_res,ncols=x_res,nlyrs=dim(vals)[3],
+                   xmin=xx[1],xmax=xx[x_res],
+                   ymin=yy[1],ymax=yy[y_res],
+                   vals=vals)
+  out
+}
+tmp<-transfer_raster(lands,800,800,method="bilinear")
+plotRGB(tmp)
+
+#filling in NAs at corners
+#works for basic case, but will need to be careful about replacing TRUE NAs
+#probably just limit to corners...
+#and check to make sure the number of NAs is actually decreasing!
+#perhaps replace NAs with -999 or something as preprocessing step?
+#or just find NAs in first place, run as normal, then replace NAs later on
+#somehow limit while statement to corners...
+
+#would be nice if things properly "wrapped" across borders...
+#but this is impossible without expanding border as far as I know...
+#also I *think* this should only really affect the NA corner
+#probably not a big enough deal
+test<-focal(tmp,3,fun="modal",na.policy="only")
+while(any(is.na(values(test)))){
+  test<-focal(test,3,fun="modal",na.policy="only")
+}
+plotRGB(test)
+
+#will have to look into "mosaicking" for grafting together spatrasters in expand_borders...
+
+
 ####CONVERSION####
 
 #let's make an "over-the-top" map of countries (including lakes), depths, and graticules...
@@ -69,10 +161,10 @@ plot(spil.countries,
      border="darkseagreen2",
      add=TRUE)
 plot(spil.coastlines,
-     col="darkseagreen3",
+     col="darkseagreen4",
      add=TRUE)
 points(dat[,c("x","y")],
-       pch=16,cex=0.5)
+       pch=16,cex=0.1)
 plot(spil.grats,
      col="gray30",
      add=TRUE)
@@ -95,11 +187,11 @@ plot(exp.spil.countries,
      border="darkseagreen2",
      add=TRUE)
 plot(exp.spil.coastlines,
-     col="darkseagreen3",
+     col="darkseagreen4",
      add=TRUE)
 plot(exp.dat,
      add=TRUE,
-     pch=16,cex=0.5)
+     pch=16,cex=0.2)
 plot(exp.spil.grats,
      col="gray30",
      add=TRUE)
@@ -148,7 +240,7 @@ plot(exp.spil.coastlines,
      add=TRUE)
 plot(exp.dat,
      add=TRUE,
-     pch=16,cex=0.5)
+     pch=16,cex=0.2)
 plot(exp.spil.grats,
      col="gray30",
      add=TRUE)

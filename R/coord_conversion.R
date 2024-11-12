@@ -85,10 +85,10 @@ spilhaus2lonlat.data.frame<-function(dat,
                                      lon="lon",lat="lat",
                                      xlim=c(-11825474,11825474),
                                      ylim=xlim){
-  x<-.check.cols(lon,dat,"Spilhaus x coordinates")
-  y<-.check.cols(lat,dat,"Spilhaus y coordinates")
+  x<-.check.cols(x,dat,"Spilhaus x coordinates")
+  y<-.check.cols(y,dat,"Spilhaus y coordinates")
 
-  tmp<-.lonlat2spilhaus(.clamp.borders(dat[[x]],xlim),
+  tmp<-.spilhaus2lonlat(.clamp.borders(dat[[x]],xlim),
                         .clamp.borders(dat[[y]],ylim))
 
   dat[[lon]]<-tmp[,1]

@@ -146,19 +146,29 @@
   x[,c("x","y")]<-coords
 
   #add in corner coordinate if it doesn't exist
+  #need to split up by parts!
+  #definitely could be made more efficient...
   on.hh<-x[,"y"]==hh
   on.vv<-x[,"x"]==vv
-  if(!any(on.hh&on.vv)){
-    corner.check<-(on.hh[c(2:nn,1)]&on.vv)|(on.vv[c(2:nn,1)]&on.hh)
-    if(any(corner.check)){
-      tmp.inds<-which(corner.check) #should always be length 1
-      tmp.tmp<-x[tmp.inds,,drop=FALSE]
-      tmp.tmp[,c("x","y")]<-c(vv,hh)
-      x<-rbind(x[seq_len(tmp.inds),,drop=FALSE],
-               tmp.tmp,
-               x[-seq_len(tmp.inds),,drop=FALSE])
+  for(i in seq_len(max(x[,"part"]))){
+    tmp.inds<-which(x[,"part"]==i)
+    nn<-length(tmp.inds)
+    if(!any(on.hh[tmp.inds]&on.vv[tmp.inds])){
+      corner.check<-(on.hh[tmp.inds[c(2:nn,1)]]&on.vv[tmp.inds])|
+        (on.vv[tmp.inds[c(2:nn,1)]]&on.hh[tmp.inds])
+      if(any(corner.check)){
+        tmp.tmp.inds<-tmp.inds[corner.check] #should always be length 1
+        tmp.tmp<-x[tmp.tmp.inds,,drop=FALSE]
+        tmp.tmp[,c("x","y")]<-c(vv,hh)
+        x<-rbind(x[seq_len(tmp.tmp.inds),,drop=FALSE],
+                 tmp.tmp,
+                 x[-seq_len(tmp.tmp.inds),,drop=FALSE])
+        on.hh<-append(on.hh,TRUE,tmp.tmp.inds)
+        on.vv<-append(on.vv,TRUE,tmp.tmp.inds)
+      }
     }
   }
+
   x
 }
 
@@ -192,12 +202,15 @@ patch_corners<-function(x,
         for(i in inds){
           if(geom.type=="polygons"){
             tmp<-terra::aggregate(
-              terra::union(
+              rbind(
                 x[i],
-                terra::vect(
-                  .magic.corner.patcher(
-                    terra::geom(terra::union(x[i],NA.patch1)[3]),
-                    top=TRUE,left=TRUE,tol=NA_tol),"polygons"
+                terra::buffer(
+                  terra::vect(
+                    .magic.corner.patcher(
+                      terra::geom(terra::union(x[i],NA.patch1)[3]),
+                      top=TRUE,left=TRUE,tol=NA_tol),"polygons"
+                  ),
+                  width=0
                 )
               )
             )
@@ -295,12 +308,15 @@ patch_corners<-function(x,
           if(geom.type=="polygons"){
 
             tmp<-terra::aggregate(
-              terra::union(
+              rbind(
                 x[i],
-                terra::vect(
-                  .magic.corner.patcher(
-                    terra::geom(terra::union(x[i],NA.patch2)[3]),
-                    top=FALSE,left=FALSE,tol=NA_tol),"polygons"
+                terra::buffer(
+                  terra::vect(
+                    .magic.corner.patcher(
+                      terra::geom(terra::union(x[i],NA.patch2)[3]),
+                      top=FALSE,left=FALSE,tol=NA_tol),"polygons"
+                  ),
+                  width=0
                 )
               )
             )
@@ -396,12 +412,15 @@ patch_corners<-function(x,
         for(i in inds){
           if(geom.type=="polygons"){
             tmp<-terra::aggregate(
-              terra::union(
+              rbind(
                 x[i],
-                terra::vect(
-                  .magic.corner.patcher(
-                    terra::geom(terra::union(x[i],SA.patch)[3]),
-                    top=FALSE,left=TRUE,tol=SA_tol),"polygons"
+                terra::buffer(
+                  terra::vect(
+                    .magic.corner.patcher(
+                      terra::geom(terra::union(x[i],SA.patch)[3]),
+                      top=FALSE,left=TRUE,tol=SA_tol),"polygons"
+                  ),
+                  width=0
                 )
               )
             )
@@ -529,12 +548,15 @@ patch_corners<-function(x,
         for(i in inds){
           if(geom.type=="polygons"){
             tmp<-terra::aggregate(
-              terra::union(
+              rbind(
                 x[i],
-                terra::vect(
-                  .magic.corner.patcher(
-                    terra::geom(terra::union(x[i],Asia.patch)[3]),
-                    top=TRUE,left=FALSE,tol=Asia_tol),"polygons"
+                terra::buffer(
+                  terra::vect(
+                    .magic.corner.patcher(
+                      terra::geom(terra::union(x[i],Asia.patch)[3]),
+                      top=TRUE,left=FALSE,tol=Asia_tol),"polygons"
+                  ),
+                  width=0
                 )
               )
             )

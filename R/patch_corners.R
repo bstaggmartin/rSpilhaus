@@ -157,14 +157,17 @@
       corner.check<-(on.hh[tmp.inds[c(2:nn,1)]]&on.vv[tmp.inds])|
         (on.vv[tmp.inds[c(2:nn,1)]]&on.hh[tmp.inds])
       if(any(corner.check)){
-        tmp.tmp.inds<-tmp.inds[corner.check] #should always be length 1
-        tmp.tmp<-x[tmp.tmp.inds,,drop=FALSE]
-        tmp.tmp[,c("x","y")]<-c(vv,hh)
-        x<-rbind(x[seq_len(tmp.tmp.inds),,drop=FALSE],
-                 tmp.tmp,
-                 x[-seq_len(tmp.tmp.inds),,drop=FALSE])
-        on.hh<-append(on.hh,TRUE,tmp.tmp.inds)
-        on.vv<-append(on.vv,TRUE,tmp.tmp.inds)
+        #might actually be best to deal with "double corners"
+        #(will suck to update expand_borders with this too)
+        tmp.tmp.inds<-tmp.inds[corner.check]
+        reps<-rep(1,nrow(x))
+        reps[tmp.tmp.inds]<-2
+        x<-x[rep(seq_len(nrow(x)),reps),,drop=FALSE]
+        x[tmp.tmp.inds,c("x","y")]<-rep(c(vv,hh),each=length(tmp.tmp.inds))
+        on.hh<-rep(on.hh,reps)
+        on.hh[tmp.tmp.inds]<-TRUE
+        on.vv<-rep(on.vv,reps)
+        on.vv[tmp.tmp.inds]<-TRUE
       }
     }
   }

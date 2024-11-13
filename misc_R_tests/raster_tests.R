@@ -3,6 +3,14 @@ library(rSpilhaus)
 library(rnaturalearth)
 library(terra)
 
+lands<-ne_load(scale=50,type="NE2_50M_SR",category="raster",destdir="misc_R_tests/rasters")
+spil.lands<-lonlat2spilhaus(lands,x_res=600)
+terra::plot(spil.lands)
+
+back.lands<-spilhaus2lonlat(spil.lands)
+terra::plot(back.lands)
+
+
 ####LOADING IN STUFF TO PLAY AROUND WITH####
 
 lands<-vect(ne_download(type="land",category="physical"))
@@ -57,8 +65,8 @@ lands<-ne_load(scale=50,type="NE2_50M_SR",category="raster",destdir="misc_R_test
 #another, perhaps hackier, option...
 #also extremely taxing from a memory/time perspective...
 #not too bad when scaled down!
-testy<-aggregate(lands,30)
-testy2<-as.polygons(testy)
+# testy<-aggregate(lands,15)
+# testy2<-as.polygons(testy)
 # plot(testy2,border=NA,col=rgb(values(testy2)[[1]]/255,0,0))
 
 #well, decided to rasterize in a different way, but it turns out this is good
@@ -67,8 +75,11 @@ testy2<-as.polygons(testy)
 # debug(patch_corners)
 #still breaks as you go up in resolution...
 #something wrong with corner checking--somehow getting multiple corners!
-spil.testy<-lonlat2spilhaus(testy2)
-plot(spil.testy,border=NA,col=gray(values(spil.testy)[[1]]/255))
+#just decided to let double corners happen--may want to update expand_borders accordingly...
+#finally got it working by just accepting double corners and buffering corner patches...
+# spil.testy<-lonlat2spilhaus(testy2)
+# plot(spil.testy,border=NA,col=gray(values(spil.testy)[[1]]/255))
+# plot(spil.testy)
 
 #figured it out! You're thinking of things in reverse of how they should be
 #should just transfer spilhaus coords to lonlat than extract raster data...
@@ -98,7 +109,7 @@ transfer_raster<-function(x,x_res=500,y_res=500,
                    vals=vals)
   out
 }
-tmp<-transfer_raster(lands,800,800,method="bilinear")
+tmp<-transfer_raster(lands,method="bilinear")
 plotRGB(tmp)
 
 #filling in NAs at corners
@@ -113,9 +124,9 @@ plotRGB(tmp)
 #but this is impossible without expanding border as far as I know...
 #also I *think* this should only really affect the NA corner
 #probably not a big enough deal
-test<-focal(tmp,3,fun="modal",na.policy="only")
+test<-focal(tmp,3,fun="mean",na.policy="only")
 while(any(is.na(values(test)))){
-  test<-focal(test,3,fun="modal",na.policy="only")
+  test<-focal(test,3,fun="mean",na.policy="only")
 }
 plotRGB(test)
 

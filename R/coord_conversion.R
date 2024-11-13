@@ -35,6 +35,72 @@ spilhaus2lonlat<-function(dat,...){
   UseMethod("spilhaus2lonlat")
 }
 
+# dat<-rnaturalearth::ne_load(scale=50,type="NE2_50M_SR",category="raster",destdir="misc_R_tests/rasters")
+# x_res<-500;y_res<-500;method<-"simple"
+#' @export
+#' @method spilhaus2lonlat SpatRaster
+spilhaus2lonlat.SpatRaster<-function(dat,
+                                     lon_res=720,
+                                     lat_res=360,
+                                     sample_method="simple",
+                                     border_tol=5e4, #seems to be a robust default...
+                                     patch_method="modal",
+                                     patch_width=3){
+
+  xx<-seq(-180+180/lon_res,180-180/lon_res,length.out=lon_res)
+  yy<-seq(-90+90/lat_res,90-90/lat_res,length.out=lat_res)
+
+  tmp<-expand.grid("lon"=xx,"lat"=rev(yy))
+  tmp<-lonlat2spilhaus(tmp,lon="lon",lat="lat",x="x",y="y")
+
+  #hmmm...cells only works if method="simple"
+  #need another test for bilinear...
+  vals<-terra::extract(dat,as.matrix(tmp[,c("x","y")]),
+                       method=sample_method)
+                       #,cells=TRUE)
+  # if(!is.null(vals$cell)){
+  #   foc.nas<-is.na(vals$cell)
+  #   vals<-vals[-1]
+  # }else{
+  #   lim<-11825474
+  #   ltmp<-tmp[,c("x","y")]<=-lim+border_tol
+  #   htmp<-tmp[,c("x","y")]>=lim-border_tol
+  #   foc.nas<-ltmp[,1]|ltmp[,2]|htmp[,1]|htmp[,2]
+  # }
+
+  out<-dat
+  terra::nrow(out)<-lat_res
+  terra::ncol(out)<-lon_res
+  terra::ext(out)<-c(-180,180,
+                     -90,90)
+  terra::values(out)<-matrix(unlist(vals,use.names=FALSE),
+                             ncol=ncol(vals),
+                             dimnames=list(NULL,colnames(vals)))
+  names(out)<-colnames(vals)
+  terra::crs(out)<-NULL
+
+  #fill in seam...
+  #the seam turned out to be an error resulting from incorrect extent specification!
+  #filling now unnecessary
+  # tmp<-terra::focal(out,patch_width,fun=patch_method,na.policy="only")
+  # while(any(is.na(terra::values(tmp)[foc.nas,]))){
+  #   tmp<-terra::focal(tmp,patch_width,fun=patch_method,na.policy="only")
+  # }
+  # terra::values(out)[foc.nas,]<-terra::values(tmp)[foc.nas,]
+
+  #hmmm...seams seem to present a problem
+  #perhaps extend borders slightly?
+
+  #looks like these should be done after the last step...
+  terra::RGB(out)<-terra::RGB(dat)
+  terra::units(out)<-terra::units(dat)
+
+  #might have accidentally discarded some important attributes
+  #but this seems like a good start
+
+  out
+}
+
 #' @export
 #' @method spilhaus2lonlat SpatVector
 spilhaus2lonlat.SpatVector<-function(dat,
@@ -181,6 +247,66 @@ spilhaus2lonlat.matrix<-function(dat,
 #' @export
 lonlat2spilhaus<-function(dat,...){
   UseMethod("lonlat2spilhaus")
+}
+
+#' @export
+#' @method lonlat2spilhaus SpatRaster
+lonlat2spilhaus.SpatRaster<-function(dat,
+                                     x_res=500,
+                                     y_res=500,
+                                     sample_method="simple",
+                                     patch_method="modal",
+                                     patch_width=3,
+                                     max_patch_iter=500){
+
+  lim<-11825474
+  xx<-seq(-lim+lim/x_res,lim-lim/x_res,length.out=x_res)
+  yy<-seq(-lim+lim/y_res,lim-lim/y_res,length.out=y_res)
+
+  tmp<-expand.grid("x"=xx,"y"=rev(yy))
+  tmp<-spilhaus2lonlat(tmp,x="x",y="y",lon="lon",lat="lat")
+
+  #use cell index to determine which NAs are reprojection vs. "true" NAs
+  #hmmm...cells only works if method="simple"
+  #need another test for bilinear...
+  vals<-terra::extract(dat,as.matrix(tmp[,c("lon","lat")]),
+                       method=sample_method,cells=TRUE)
+  if(!is.null(vals$cell)){
+    foc.nas<-is.na(vals$cell)
+    vals<-vals[-1]
+  }else{
+    foc.nas<-is.na(tmp[,"lon"])|is.na(tmp[,"lat"])
+  }
+
+
+  out<-dat
+  terra::nrow(out)<-y_res
+  terra::ncol(out)<-x_res
+  terra::ext(out)<-c(-lim,lim,
+                     -lim,lim)
+  terra::values(out)<-matrix(unlist(vals,use.names=FALSE),
+                             ncol=ncol(vals),
+                             dimnames=list(NULL,colnames(vals)))
+  names(out)<-colnames(vals)
+  terra::crs(out)<-NULL
+
+  #fill in corners...
+  tmp<-terra::focal(out,patch_width,fun=patch_method,na.policy="only")
+  counter<-1
+  while(any(is.na(terra::values(tmp)[foc.nas,]))&counter<max_patch_iter){
+    tmp<-terra::focal(tmp,patch_width,fun=patch_method,na.policy="only")
+    counter<-counter+1
+  }
+  terra::values(out)[foc.nas,]<-terra::values(tmp)[foc.nas,]
+
+  #looks like these should be done after the last step...
+  terra::RGB(out)<-terra::RGB(dat)
+  terra::units(out)<-terra::units(dat)
+
+  #might have accidentally discarded some important attributes
+  #but this seems like a good start
+
+  out
 }
 
 #' @export

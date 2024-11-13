@@ -113,7 +113,7 @@ plot(exp.spil.grats,
 
 #again, this takes a bit...
 exp.spil.depths<-expand_borders(spil.depths,
-                                prettify=TRUE,frame=FALSE)
+                                prettify=TRUE)
 
 #best to use simple land (rather than individual countries) here
 #you could use countries, but it gets ugly due to many individual polygons!
@@ -121,7 +121,6 @@ exp.spil.depths<-expand_borders(spil.depths,
 exp.spil.lands<-expand_borders(lonlat2spilhaus(lands),
                                prettify=TRUE,frame=TRUE)
 
-#no need to specify frame as FALSE for the following because line/point data...
 exp.spil.coastlines<-expand_borders(spil.coastlines,
                                     prettify=TRUE)
 exp.dat<-expand_borders(vect(dat[,c("x","y")],"points"),
@@ -167,3 +166,114 @@ plot(bad.spil.grats)
 #well, other than erasing anything in the corners...
 #but this the spilhaus projection...
 #so you really shouldn't have any point data in the corners!
+
+####MESSING AROUND WITH RASTERS####
+
+#be sure to change destdir for your own setup here!!!
+ne_download(scale=50,type="HYP_50M_SR",category="raster",destdir="misc_R_tests/rasters")
+#annoyingly, had to manually package the downloaded files up for this to work...
+land.rast<-
+  ne_load(scale=50,type="HYP_50M_SR",category="raster",destdir="misc_R_tests/rasters")
+ne_download(scale=50,type="OB_50M",category="raster",destdir="misc_R_tests/rasters")
+water.rast<-
+  ne_load(scale=50,type="OB_50M",category="raster",destdir="misc_R_tests/rasters")
+
+#initial tests with land data...
+spil.land.rast<-lonlat2spilhaus(land.rast)
+plot(spil.land.rast)
+
+#this seems to give a more "natural" result...
+spil.land.rast<-lonlat2spilhaus(land.rast,
+                                sample_method="bilinear",
+                                patch_method="mean")
+plot(spil.land.rast)
+
+#how does it work with NA cells?
+new.land.rast<-crop(land.rast,lands,mask=TRUE,touches=FALSE)
+plot(new.land.rast,colNA="lightblue1")
+spil.land.rast<-lonlat2spilhaus(new.land.rast,
+                                sample_method="bilinear",
+                                patch_method="mean")
+plot(spil.land.rast,colNA="lightblue1") #nice
+
+#testing expand_borders
+plot(expand_borders(spil.land.rast),colNA="lightblue1")
+plot(expand_borders(spil.land.rast,prettify=TRUE,frame=TRUE),colNA="lightblue1")
+#trying to find prettier ways to fill in frame...
+plot(expand_borders(spil.land.rast,prettify=TRUE,frame=TRUE,
+                    sample_method="bilinear",
+                    patch_width=3,patch_width_inc=10,
+                    patch_method="mean"),colNA="lightblue1")
+#funky-looking...
+#will need to play around with this more in the future...
+#I think the best strategy would be to keep blurring previous cells in each patching iteration...
+#but terra doesn't yet support limiting such blurring operations to particular cells (unless those cells are NA)
+#I can think of some potential workarounds with masking, but it doesn't seem worth it at the moment
+
+#oh well, moving on for now
+#erasing land from water?
+new.water.rast<-crop(water.rast,
+                     erase(terra::vect(cbind(c(-180,-180,180,180),
+                                             c(-90,90,90,-90)),
+                                       "polygons"),
+                           lands),
+                     mask=TRUE)
+plot(new.water.rast,colNA="darkseagreen3")
+
+#found it was actually best to use full water raster and plot land over it...
+#this avoids awkward cell gaps in the final plot
+spil.water.rast<-lonlat2spilhaus(water.rast,
+                                 sample_method="bilinear",
+                                 patch_method="mean")
+plot(spil.water.rast)
+
+#do a quick mockup with prettification...
+plot(expand_borders(spil.water.rast,prettify=TRUE,
+                    sample_method="bilinear"))
+plot(expand_borders(spil.land.rast,prettify=TRUE,frame=TRUE,
+                    sample_method="bilinear",
+                    patch_width=3,patch_width_inc=10,
+                    patch_method="mean"),
+     add=TRUE,
+     bgalpha=0)
+plot(exp.spil.grats,
+     add=TRUE,
+     col="black")
+#this honestly looks pretty bad, but you get the idea...
+#(projecting country borders beyond prettification boundaries is just tricky...)
+plot(expand_borders(spil.countries,prettify=TRUE,frame=TRUE),
+     add=TRUE,
+     border="gray90")
+
+#how about one with tiling?
+plot(expand_borders(spil.water.rast,
+                    sample_method="bilinear"))
+plot(expand_borders(spil.land.rast,
+                    sample_method="bilinear"),
+     add=TRUE,
+     bgalpha=0)
+plot(expand_borders(spil.countries),
+     add=TRUE,
+     border="gray90")
+plot(expand_borders(spil.grats),
+     add=TRUE,
+     col="gray50")
+
+#now for funsies --> one REALLY zoomed out
+plot(expand_borders(spil.water.rast,
+                    sample_method="bilinear",
+                    amount=0.3))
+plot(expand_borders(spil.land.rast,
+                    sample_method="bilinear",
+                    amount=0.3),
+     add=TRUE,
+     bgalpha=0)
+plot(expand_borders(spil.countries,
+                    amount=0.3),
+     add=TRUE,
+     border="gray90")
+plot(expand_borders(lonlat2spilhaus(make_graticules(lon=10,lat=10)),
+                    amount=0.3),
+     add=TRUE,
+     col="gray50")
+#so delightfully odd-looking...

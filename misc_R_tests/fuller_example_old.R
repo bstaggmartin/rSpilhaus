@@ -200,14 +200,36 @@ plot(spil.land.rast,colNA="lightblue1") #nice
 plot(expand_borders(spil.land.rast),colNA="lightblue1")
 plot(expand_borders(spil.land.rast,prettify=TRUE,frame=TRUE),colNA="lightblue1")
 #trying to find prettier ways to fill in frame...
+#this doesn't really work because most cells are NA in the beginning...
+#oooh, maybe a weighting function will make it better?
+# foo<-function(x){
+#   if(sum(is.na(x))>length(x)/2){
+#     NA
+#   }else{
+#     mean(x,na.rm=TRUE)
+#   }
+# }
+#playing around with kernel types definitely helps...
+#but still some ways to go
+#perhaps a final bluring step? Seems to work well!
+#A little fiddly (and modal now seems broken with more precise kernel specification)
+#But overall not too bad
+#Probably make it so that patch_kernel=NA defaults to no kernel spec
+
+#Oooh, got a new one--progressive blurring?
 plot(expand_borders(spil.land.rast,prettify=TRUE,frame=TRUE,
                     sample_method="bilinear",
-                    patch_width=5,
-                    patch_width_inc=3,
-                    patch_method="mean"),
+                    patch_width=3,
+                    patch_method="mean",
+                    patch_width_inc=0,
+                    patch_kernel=NA,
+                    final_blur=0),
      colNA="lightblue1")
-#still not perfect...but starting to look better
-
+#funky-looking...
+#will need to play around with this more in the future...
+#I think the best strategy would be to keep blurring previous cells in each patching iteration...
+#but terra doesn't yet support limiting such blurring operations to particular cells (unless those cells are NA)
+#I can think of some potential workarounds with masking, but it doesn't seem worth it at the moment
 
 #oh well, moving on for now
 #erasing land from water?

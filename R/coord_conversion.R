@@ -42,10 +42,7 @@ spilhaus2lonlat<-function(dat,...){
 spilhaus2lonlat.SpatRaster<-function(dat,
                                      lon_res=720,
                                      lat_res=360,
-                                     sample_method="simple",
-                                     border_tol=5e4, #seems to be a robust default...
-                                     patch_method="modal",
-                                     patch_width=3){
+                                     sample_method="simple"){
 
   xx<-seq(-180+180/lon_res,180-180/lon_res,length.out=lon_res)
   yy<-seq(-90+90/lat_res,90-90/lat_res,length.out=lat_res)
@@ -257,6 +254,7 @@ lonlat2spilhaus.SpatRaster<-function(dat,
                                      sample_method="simple",
                                      patch_method="modal",
                                      patch_width=3,
+                                     patch_width_inc=0,
                                      max_patch_iter=500){
 
   lim<-11825474
@@ -291,10 +289,15 @@ lonlat2spilhaus.SpatRaster<-function(dat,
   terra::crs(out)<-NULL
 
   #fill in corners...
-  tmp<-terra::focal(out,patch_width,fun=patch_method,na.policy="only")
+  tmp<-terra::focal(out,
+                    max(ceiling(patch_width/2)*2-1,3),
+                    fun=patch_method,na.policy="only")
   counter<-1
   while(any(is.na(terra::values(tmp)[foc.nas,]))&counter<max_patch_iter){
-    tmp<-terra::focal(tmp,patch_width,fun=patch_method,na.policy="only")
+    patch_width<-patch_width+patch_width_inc
+    tmp<-terra::focal(tmp,
+                      max(ceiling(patch_width/2)*2-1,3),
+                      fun=patch_method,na.policy="only")
     counter<-counter+1
   }
   terra::values(out)[foc.nas,]<-terra::values(tmp)[foc.nas,]

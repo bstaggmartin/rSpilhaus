@@ -37,11 +37,12 @@ expand_borders<-function(x,
                          revalidate_geoms=TRUE,
                          sample_method="simple",
                          patch_method="modal",
+                         patch_kernel=NA,
                          patch_width=3,
-                         patch_width_inc=0,
-                         max_patch_iter=1e4,
-                         blur_amount=patch_width,
-                         blur_iter=50){
+                         mult_patch_width_inc=FALSE,
+                         patch_width_inc=if(mult_patch_width_inc) 1 else 0,
+                         final_blur=0,
+                         max_patch_iter=1e4){
 
   if(amount>1|amount<0){
     stop("amount must be between 0 and 1")
@@ -569,52 +570,89 @@ expand_borders<-function(x,
                        -lim-wd))
     if(is.na(geom.type)){
       out.prj<-terra::crop(out.prj,terra::vect(rectangle,"polygons"),extend=TRUE)
-      foc.nas<-!vector("logical",terra::ncell(out.prj))
-      foc.nas[terra::cells(out.prj,terra::vect(cropper,"polygons"))[,2]]<-
-        FALSE
+      foc.nas<-
+        seq_len(terra::ncell(out.prj))[
+          -terra::cells(out.prj,terra::vect(cropper,"polygons"))[,2]
+          ]
 
-      blur_amount<-blur_amount
+      rr<-mean(rez)
+
+      if(is.na(patch_kernel)){
+        tmp.mat<-max(ceiling(patch_width/2)*2-1,3)
+      }else{
+        tmp.mat<-terra::focalMat(out.prj,
+                                 max(ceiling(patch_width/2)*2-1,3)*rr/
+                                   if(patch_kernel=="Gauss") 6 else 2,
+                                 patch_kernel)
+      }
       tmp<-terra::focal(out.prj,
-                        max(ceiling(patch_width/2)*2-1,3),
+                        tmp.mat,
                         fun=patch_method,na.policy="only")
       counter<-1
       while(any(is.na(terra::values(tmp)[foc.nas,]))&counter<max_patch_iter){
-        patch_width<-patch_width+patch_width_inc
+        if(mult_patch_width_inc){
+          patch_width<-patch_width*patch_width_inc
+        }else{
+          patch_width<-patch_width+patch_width_inc
+        }
+        if(is.na(patch_kernel)){
+          tmp.mat<-max(ceiling(patch_width/2)*2-1,3)
+        }else{
+          tmp.mat<-terra::focalMat(out.prj,
+                                   max(ceiling(patch_width/2)*2-1,3)*rr/
+                                     if(patch_kernel=="Gauss") 6 else 2,
+                                   patch_kernel)
+        }
         tmp<-terra::focal(tmp,
-                          max(ceiling(patch_width/2)*2-1,3),
+                          tmp.mat,
                           fun=patch_method,na.policy="only")
         counter<-counter+1
       }
+      # tmp<-terra::focal(tmp,
+      #                   21,
+      #                   "mean")
+      #is there a way to strengthen the blur towards the outside edges?
+      #not that I can think of...
 
+      #Thought of it! Though it will be a little taxing...
+      # terra::plot(tmp)
+      #
+      # if(final_blur>0){
+      #   tmp<-terra::focal(tmp,max(ceiling(final_blur/2)*2-1,3),"mean",na.rm=TRUE)
+      # }
 
-      #final blurring to "fade out" edges...
       terra::values(out.prj)[foc.nas,]<-terra::values(tmp)[foc.nas,]
+
       #ooooh, you probably want the crs to be local for all this!
-      crs(out.prj)<-"local"
-      cropper<-terra::vect(cropper,"polygons")
-      crs(cropper)<-"local"
-      cropper<-terra::densify(cropper,1e5) #1e5 seems to work fine
-      dd<-terra::distance(out.prj,cropper)
-      # terra::plot(dd) #perfect!
+      test<-out.prj
+      crs(test)<-"local"
+      testy<-terra::vect(cropper,"polygons")
+      crs(testy)<-"local"
+      testy<-terra::densify(testy,1e5) #1e5 seems to work fine
+
+      dd<-terra::distance(test,testy)
+      terra::plot(dd) #perfect!
 
       #would be more efficient to use greater thans and apply repeated blurring amount I think...
       #also should use more blurring levels
       #but you're definitely on the right track here!
       dran<-range(terra::values(dd))
-      breaks<-seq(dran[1],dran[2]+1,length.out=blur_iter+1)
+      breaks<-seq(dran[1],dran[2]+1,length.out=101)
       foc.inds<-findInterval(terra::values(dd),breaks)
-      for(i in 2:blur_iter){
+      blur_amount<-5
+      for(j in 2:(length(breaks)-1)){
         tmp<-terra::focal(out.prj,
                           max(ceiling(blur_amount/2)*2-1,3),
                           "mean",
                           na.rm=TRUE)
-        tmp.inds<-foc.inds>=i&foc.nas
+        tmp.inds<-which(foc.inds>=j)
+        tmp.inds<-tmp.inds[tmp.inds%in%foc.nas]
         terra::values(out.prj)[tmp.inds,]<-terra::values(tmp)[tmp.inds,]
+        cat(j,"\n")
       }
 
       terra::RGB(out.prj)<-terra::RGB(x)
       terra::units(out.prj)<-terra::units(x)
-      terra::crs(out.prj)<-NULL
 
 
     }else{

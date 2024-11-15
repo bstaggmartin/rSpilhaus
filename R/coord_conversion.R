@@ -290,13 +290,13 @@ lonlat2spilhaus.SpatRaster<-function(dat,
 
   #fill in corners...
   tmp<-terra::focal(out,
-                    max(ceiling(patch_width/2)*2-1,3),
+                    .getkernel(patch_width,patch_method),
                     fun=patch_method,na.policy="only")
   counter<-1
   while(any(is.na(terra::values(tmp)[foc.nas,]))&counter<max_patch_iter){
     patch_width<-patch_width+patch_width_inc
     tmp<-terra::focal(tmp,
-                      max(ceiling(patch_width/2)*2-1,3),
+                      .getkernel(patch_width,patch_method),
                       fun=patch_method,na.policy="only")
     counter<-counter+1
   }

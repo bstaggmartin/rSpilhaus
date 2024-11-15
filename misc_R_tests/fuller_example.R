@@ -2,6 +2,7 @@ rm(list=ls())
 library(rSpilhaus)
 library(rnaturalearth)
 library(terra)
+library(geodata)
 
 ####LOADING IN STUFF TO PLAY AROUND WITH####
 
@@ -202,12 +203,24 @@ plot(expand_borders(spil.land.rast,prettify=TRUE,frame=TRUE),colNA="lightblue1")
 #trying to find prettier ways to fill in frame...
 plot(expand_borders(spil.land.rast,prettify=TRUE,frame=TRUE,
                     sample_method="bilinear",
+                    patch_method="mean",
                     patch_width=5,
-                    patch_width_inc=3,
-                    patch_method="mean"),
+                    patch_width_inc=2,
+                    fade_strength=2),
      colNA="lightblue1")
 #still not perfect...but starting to look better
 
+#can even specify different frame values now...
+#(frame_val defaults to NA, which corresponds to mean value of frame)
+#(can also set frame_val to NULL to suppress any color fading)
+plot(expand_borders(spil.land.rast,prettify=TRUE,frame=TRUE,
+                    sample_method="bilinear",
+                    patch_width=5,
+                    patch_width_inc=2,
+                    patch_method="mean",
+                    fade_strength=1.5,
+                    frame_val=0),
+     colNA="lightblue1")
 
 #oh well, moving on for now
 #erasing land from water?
@@ -231,8 +244,10 @@ plot(expand_borders(spil.water.rast,prettify=TRUE,
                     sample_method="bilinear"))
 plot(expand_borders(spil.land.rast,prettify=TRUE,frame=TRUE,
                     sample_method="bilinear",
-                    patch_width=10,patch_width_inc=2,
-                    patch_method="mean"),
+                    patch_method="mean",
+                    patch_width=5,
+                    patch_width_inc=2,
+                    fade_strength=2),
      add=TRUE,
      bgalpha=0)
 plot(exp.spil.grats,
@@ -276,3 +291,21 @@ plot(expand_borders(lonlat2spilhaus(make_graticules(lon=10,lat=10)),
      add=TRUE,
      col="gray50")
 #so delightfully odd-looking...
+
+#what about a smoother, more abstract raster (e.g., temp data)
+#does that look better prettified?
+worldclim_global("tavg",5,"misc_R_tests/rasters")
+files<-list.files("misc_R_tests/rasters/climate/wc2.1_5m/",
+                  full.names=TRUE)
+temp<-rast(lapply(files,rast))
+spil.temp<-lonlat2spilhaus(temp,
+                           sample_method="bilinear",
+                           patch_method="mean")
+plot(spil.temp)
+plot(expand_borders(mean(spil.temp),prettify=TRUE,frame=TRUE))
+plot(expand_borders(mean(spil.temp),prettify=TRUE,frame=TRUE,
+                    sample_method="bilinear",
+                    patch_width=5,
+                    patch_width_inc=2,
+                    patch_method="mean"))
+#definitely! Still a little wonky, but I should probably stop letting this bug me for now...

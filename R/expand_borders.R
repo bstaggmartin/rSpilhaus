@@ -22,6 +22,44 @@
 #might be cool to add in an averaging function that first checks how many adjacent cells are NA
 #this--at least theoretically, will prevent the "overly sharp" artifacts resulting from mainly sampling NA cells (which in turn are omitted)
 
+.getkernel<-function(w,patch_method){
+  w<-max(ceiling(w/2)*2-1,3)
+
+  # #4 corner test for better aliasing...
+  # hd<-(.row(c(w+1,w+1))-(w+2)/2)^2
+  # vd<-(.col(c(w+1,w+1))-(w+2)/2)^2
+  # tl<-sqrt(hd[-(w+1),-(w+1)]+vd[-(w+1),-(w+1)])<w/2
+  # tr<-sqrt(hd[-1,-1]+vd[-(w+1),-(w+1)])<w/2
+  # bl<-sqrt(hd[-(w+1),-(w+1)]+vd[-1,-1])<w/2
+  # br<-sqrt(hd[-1,-1]+vd[-1,-1])<w/2
+  #
+  # out<-(tl+tr+bl+br)/4
+  # out[out==0]<-NA
+  # out
+
+  #can also try gaussian...
+  #think this is giving better results!
+  out<-tcrossprod(dnorm(seq(-3+6/(2*w),3-6/(2*w),length.out=w))/dnorm(0))
+  #based on dnorm(3)/dnorm(0) being just below 0.01111
+  if(patch_method=="mean"){
+    out[out<1.111e-2]<-NA
+  }else{
+    out[]<-c(1L,NA)[(out<1.111e-2)+1]
+  }
+  out
+}
+
+.smoothinterp<-function(n,s){
+  tmp<-seq(0,1,length.out=n)
+  if(s>1){
+    props<-plogis(tmp,0.4/s,0.4/(s*3*sqrt(3)))
+    (1-props)*(tmp^s)+props*tmp^(1/s)
+  }else{
+    tmp^(1/s)
+  }
+  # plogis(s*seq(-3*sqrt(3)/s,3*sqrt(3)*(2-1/s),length.out=n))
+}
+
 #' @export
 expand_borders<-function(x,
                          amount=0.06,
@@ -40,8 +78,10 @@ expand_borders<-function(x,
                          patch_width=3,
                          patch_width_inc=0,
                          max_patch_iter=1e4,
-                         blur_amount=patch_width,
-                         blur_iter=50){
+                         frame_val=NA,
+                         blur_strength=patch_width,
+                         blur_iter=50,
+                         fade_strength=1){
 
   if(amount>1|amount<0){
     stop("amount must be between 0 and 1")
@@ -573,48 +613,74 @@ expand_borders<-function(x,
       foc.nas[terra::cells(out.prj,terra::vect(cropper,"polygons"))[,2]]<-
         FALSE
 
-      blur_amount<-blur_amount
+      blur_strength<-blur_strength
       tmp<-terra::focal(out.prj,
-                        max(ceiling(patch_width/2)*2-1,3),
+                        .getkernel(patch_width,patch_method),
                         fun=patch_method,na.policy="only")
       counter<-1
       while(any(is.na(terra::values(tmp)[foc.nas,]))&counter<max_patch_iter){
         patch_width<-patch_width+patch_width_inc
         tmp<-terra::focal(tmp,
-                          max(ceiling(patch_width/2)*2-1,3),
+                          .getkernel(patch_width,patch_method),
                           fun=patch_method,na.policy="only")
         counter<-counter+1
       }
 
-
-      #final blurring to "fade out" edges...
       terra::values(out.prj)[foc.nas,]<-terra::values(tmp)[foc.nas,]
-      #ooooh, you probably want the crs to be local for all this!
-      crs(out.prj)<-"local"
-      cropper<-terra::vect(cropper,"polygons")
-      crs(cropper)<-"local"
-      cropper<-terra::densify(cropper,1e5) #1e5 seems to work fine
-      dd<-terra::distance(out.prj,cropper)
-      # terra::plot(dd) #perfect!
 
-      #would be more efficient to use greater thans and apply repeated blurring amount I think...
-      #also should use more blurring levels
-      #but you're definitely on the right track here!
-      dran<-range(terra::values(dd))
-      breaks<-seq(dran[1],dran[2]+1,length.out=blur_iter+1)
-      foc.inds<-findInterval(terra::values(dd),breaks)
-      for(i in 2:blur_iter){
-        tmp<-terra::focal(out.prj,
-                          max(ceiling(blur_amount/2)*2-1,3),
-                          "mean",
-                          na.rm=TRUE)
-        tmp.inds<-foc.inds>=i&foc.nas
-        terra::values(out.prj)[tmp.inds,]<-terra::values(tmp)[tmp.inds,]
+      if(!is.null(frame_val)){
+        frame_val<-rep(frame_val,length.out=terra::nlyr(out.prj))
+        probs<-is.na(frame_val)
+        if(any(probs)){
+          frame_val[probs]<-colMeans(terra::values(out.prj)[foc.nas,probs,drop=FALSE],
+                                     na.rm=TRUE)
+        }
       }
+
+      if(!is.null(frame_val)|blur_strength>0){
+        #final blurring to "fade out" edges...
+        #ooooh, you probably want the crs to be local for all this!
+        crs(out.prj)<-"local"
+        cropper<-terra::vect(cropper,"polygons")
+        crs(cropper)<-"local"
+        cropper<-terra::densify(cropper,1e5) #1e5 seems to work fine
+        dd<-terra::distance(out.prj,cropper)
+        # terra::plot(dd) #perfect!
+
+        #would be more efficient to use greater thans and apply repeated blurring amount I think...
+        #also should use more blurring levels
+        #but you're definitely on the right track here!
+        dran<-range(terra::values(dd))
+        breaks<-seq(dran[1],dran[2]+1,length.out=blur_iter+1)
+        foc.inds<-findInterval(terra::values(dd),breaks)
+
+        if(blur_strength>0){
+          for(i in 2:blur_iter){
+            tmp<-terra::focal(out.prj,
+                              .getkernel(blur_strength,"mean"),
+                              "mean",
+                              na.rm=TRUE)
+            tmp.inds<-foc.inds>=i&foc.nas
+            terra::values(out.prj)[tmp.inds,]<-terra::values(tmp)[tmp.inds,]
+          }
+        }
+        if(!is.null(frame_val)){
+          props<-.smoothinterp(blur_iter+1,fade_strength)
+          for(i in 2:blur_iter){
+            tmp.inds<-foc.inds==i&foc.nas
+            terra::values(out.prj)[tmp.inds,]<-
+              (1-props[i])*terra::values(out.prj)[tmp.inds,]+
+              props[i]*rep(frame_val,each=sum(tmp.inds))
+          }
+        }
+
+        terra::crs(out.prj)<-NULL
+      }
+
+
 
       terra::RGB(out.prj)<-terra::RGB(x)
       terra::units(out.prj)<-terra::units(x)
-      terra::crs(out.prj)<-NULL
 
 
     }else{
